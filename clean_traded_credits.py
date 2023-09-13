@@ -5,10 +5,10 @@ from datetime import datetime
 
 # Import the Traded Credits data with pandas
 # Define the Excel file to import
-trade_data = (r"~/Documents/Trade Analysis/"
-            r"Trade-prices_2023-June.xlsx")
+trade_data = ('~/Documents/Trade Analysis/NVCR_Trade-prices_2023-Aug.xlsx')
 
-output_file = ("~/Documents/Trade Analysis/Full-Traded-Credits-{}.csv")
+hu_output_file = ('~/Documents/Trade Analysis/Full-HU-Traded-Credits-{}.csv')
+shu_output_file = ('~/Documents/Trade Analysis/Full-SHU-Traded-Credits-{}.csv')
 
 # Open the Excel file. Quit if not FileNotFoundError
 try:
@@ -30,6 +30,9 @@ hu_df['cma'] = hu_df['cma'].map(str)
 
 # Grab the SHUs from the HU dataframe
 shu_df = hu_df[pd.notnull(hu_df['species'])]
+
+# Drop the SHU columns we don't need
+shu_df = shu_df.drop(['cma', 'sbv', 'ghu', 'ghu_price', 'unnamed'], axis=1)
 
 # Drop the SHU trades so we only have GHU trades
 hu_df = hu_df[pd.isnull(hu_df['species'])]
@@ -59,5 +62,8 @@ hu_df['cma'] = hu_df.apply(lambda row: fix_cmas(row), axis=1)
 hu_df['date'] = pd.to_datetime(hu_df['date'])
 
 # Write the df to a file
-hu_df.to_csv(output_file.format(datetime.now().\
-                                      strftime("%Y%m%d_%H%M%S")))
+hu_df.to_csv(hu_output_file.format(datetime.now().
+                                   strftime("%Y%m%d_%H%M%S")))
+
+shu_df.to_csv(shu_output_file.format(datetime.now().\
+                                     strftime("%Y%m%d_%H%M%S")))
