@@ -7,18 +7,18 @@ from datetime import datetime, timedelta
 import argparse
 
 # Call argparse and define the arguments
-parser = argparse.ArgumentParser(description='Process trade prices and supply\
-                                 date to do trade analysis for the past year.')
+parser = argparse.ArgumentParser(description='Process trade prices and supply'
+                                 'date to do trade analysis for the past year.')
 parser.add_argument("-s", "--supply", required = True, default='supply.xlsx',
-                    help='Name of the supply data to read from.')
+                    help='Name of the supply Excel data to read from.')
 parser.add_argument("-i", "--input", required = True, 
-                    help='The input trade price spreadsheet downloaded from \
-                        the NVCR. "https://www.environment.vic.gov.au/native-\
+                    help='The input trade price spreadsheet downloaded from'
+                        ' the NVCR. "https://www.environment.vic.gov.au/native-\
                         vegetation/native-vegetation-removal-regulations"')
 parser.add_argument("-o", "--output", default='Trade-Analysis.xlsx',
-                    help='The name of the file you would like to write the \
-                        anlysis to. Default is "Trade-Analysis.xlsx" in the \
-                        current directory')
+                    help='The name of the file you would like to write the '
+                        'anlysis to. Default is "Trade-Analysis.xlsx" in the '
+                        'current directory')
 
 args = parser.parse_args()
 
@@ -47,9 +47,11 @@ except FileNotFoundError as e:
 hu_df = trade_df.parse('Trade prices by HU')
 
 # Rename the columns to something usable
-hu_df = hu_df.set_axis(['date', 'cma', 'sbv', 'ghu', 'lt', 'sbu', 'ghu_price',\
-                'shu_price', 'species', 'price_in_gst', 'price_ex_gst',\
-                'unnamed'], axis=1)
+hu_df = hu_df.set_axis([
+     'date', 'cma', 'sbv', 'ghu', 'lt', 'sbu', 'ghu_price', 'shu_price', 
+     'species', 'price_in_gst', 'price_ex_gst', 'unnamed'], 
+     axis=1
+     )
 
 # start_date = input('Start date: ')
 # end_date = input ('End date: ')
@@ -86,9 +88,10 @@ hu_df = hu_df[pd.isnull(hu_df['species'])]
 # Make sure all LTs are integers
 hu_df['lt'] = hu_df['lt'].map(int)
 
-choices = ['Corangamite', 'Port Phillip and Westernport', 'Wimmera', \
-           'Glenelg Hopkins', 'Goulburn Broken', 'West Gippsland', \
-           'East Gippsland', 'Mallee', 'North Central', 'North East']
+choices = ['Corangamite', 'Port Phillip and Westernport', 'Wimmera', 
+           'Glenelg Hopkins', 'Goulburn Broken', 'West Gippsland', 
+           'East Gippsland', 'Mallee', 'North Central', 'North East'
+           ]
 
 # Clean up all the inconsistancies in CMA names
 def fix_cmas(row):
@@ -98,9 +101,8 @@ def fix_cmas(row):
 hu_df['cma'] = hu_df.apply(lambda row: fix_cmas(row), axis=1)
 
 # group by CMA and sum GHU, LT and then min, max, median, mean the price
-better_df = hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', \
-                                        'lt': 'sum', 'ghu_price': \
-                                            ['min', 'max', 'median']})
+better_df = hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 
+        'lt': 'sum', 'ghu_price': ['min', 'max', 'median']})
 
 print(better_df)
 
@@ -126,26 +128,28 @@ for k, v in hu_df.groupby('cma'):
     summary_df.loc[2, ['values']] = v['price_ex_gst'].sum() / v['ghu'].sum()
     summary_df.loc[3, ['values']] = v['ghu_price'].median()
     summary_df.loc[4, ['values']] = v.loc[v['lt'] == 0].agg('ghu').sum()
-    summary_df.loc[5, ['values']] = v.loc[v['lt'] == 0].agg('price_ex_gst').sum()
-    summary_df.loc[6, ['values']] = \
-        v.loc[v['lt'] == 0].agg('price_ex_gst').sum() \
-        / v.loc[v['lt'] == 0].agg('ghu').sum()
-    summary_df.loc[7, ['values']] = \
-        v.loc[v['lt'] == 0].agg('ghu_price').median()
+    summary_df.loc[5, ['values']] = v.loc[v['lt'] == 0].agg(
+        'price_ex_gst').sum()
+    summary_df.loc[6, ['values']] = v.loc[v['lt'] == 0].agg(
+         'price_ex_gst').sum() / v.loc[v['lt'] == 0].agg('ghu').sum()
+    summary_df.loc[7, ['values']] = v.loc[v['lt'] == 0].agg(
+         'ghu_price').median()
     summary_df.loc[8, ['values']] = v['ghu_price'].min()
     summary_df.loc[9, ['values']] = v['lt'].sum()
     # Calculate the theoretical value of trees
     # Total GHU value - Total GHU without trees value -
     # - Tree GHUs * Avg Price without LTs / Number of LTs
-    summary_df.loc[10, ['values']] = (summary_df.loc[1, ['values']] \
-        - summary_df.loc[5, ['values']] \
-        - v.loc[v['lt'] > 0].agg('ghu').sum() \
-        * summary_df.loc[6, ['values']]) \
+    summary_df.loc[10, ['values']] = (
+        (summary_df.loc[1, ['values']]
+        - summary_df.loc[5, ['values']]
+        - v.loc[v['lt'] > 0].agg('ghu').sum()
+        * summary_df.loc[6, ['values']])
         / summary_df.loc[9, ['values']]
+        )
     
     summary_df.loc[11, ['values']] = supply_df[k].agg('GHU').sum()
-    summary_df.loc[12, ['values']] = summary_df.loc[11, ['values']] \
-        / summary_df.loc[0, ['values']]
+    summary_df.loc[12, ['values']] = (summary_df.loc[11, ['values']]
+        / summary_df.loc[0, ['values']])
     summary_df.loc[13, ['values']] = supply_df[k].agg('LT').sum()
     
 
@@ -154,19 +158,20 @@ for k, v in hu_df.groupby('cma'):
 
 writer = pd.ExcelWriter(output_file.format(datetime.now().\
                                       strftime("%Y%m%d_%H%M%S")), 
-                    engine='xlsxwriter', \
-                    engine_kwargs={'options':{'strings_to_formulas': False}})\
+                    engine='xlsxwriter',
+                    engine_kwargs={'options':{'strings_to_formulas': False}})
 
 hu_df.to_excel(writer, sheet_name='HU Data')
 shu_df.to_excel(writer, sheet_name='SHU Data')
-hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 'lt': 'sum', \
-                                              'ghu_price': ['min', 'max', \
-                                              'mean', 'median']}).to_excel \
-                                              (writer, sheet_name='Summary')
+hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 'lt': 'sum', 
+    'ghu_price': ['min', 'max', 'mean', 'median']}).to_excel(
+         writer, sheet_name='Summary')
+
 for cma in summaries:
         summaries[cma].to_excel(writer, sheet_name=cma)
         for column in summaries[cma]:
-             column_width = max(summaries[cma][column].astype(str).map(len).max(), len(column))
+             column_width = max(summaries[cma][column].astype(str).map(len)
+                                .max(), len(column))
              col_idx = summaries[cma].columns.get_loc(column)
              if col_idx == 0:
                   column_width = 2
