@@ -30,6 +30,15 @@ supply_data = args.supply
 
 output_file = args.output
 
+# Define the property IDs of the Water Authorities
+wa = {}
+wa['Corangamite'] = ['BBA-2252']
+wa['Glenelg Hopkins'] = ['TFN-C0228 ']
+wa['Port Phillip and Westernport'] = [
+     'BBA-0277', 'BBA-0670', 'BBA-0677', 'BBA-0678']
+wa['West Gippsland'] = ['BBA-3049', 'BBA-2845', 'BBA-2839', 'BBA-2790', 
+                        'BBA-2789', 'BBA-2751', 'BBA-2766', 'BBA-2623']
+
 # Open the Excel file. Quit if not FileNotFoundError
 try:
     trade_df = pd.ExcelFile(trade_data)
@@ -79,8 +88,14 @@ hu_df = hu_df.drop(['unnamed'], axis=1)
 # Grab the SHUs from the HU dataframe
 shu_df = hu_df[pd.notnull(hu_df['species'])]
 
+# Drop the SHU columns we don't need
+shu_df = shu_df.drop(['cma', 'sbv', 'ghu', 'ghu_price'], axis=1)
+
 # Drop the SHU trades so we only have GHU trades
 hu_df = hu_df[pd.isnull(hu_df['species'])]
+
+# Drop the HU columns we don't need
+hu_df = hu_df.drop(['sbu', 'shu_price', 'species'], axis=1)
 
 # Debug -- write the df to a file
 # hu_df.to_excel('~/Documents/output_hu_df.xlsx')
@@ -104,37 +119,49 @@ hu_df['cma'] = hu_df.apply(lambda row: fix_cmas(row), axis=1)
 better_df = hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 
         'lt': 'sum', 'ghu_price': ['min', 'max', 'median']})
 
-print(better_df)
+print(better_df, '\n')
 
-summary = {'description': ['Total GHUs traded', 'Total GHUs value', 
-                           'Average price per GHU', 
-                           'Median price per GHU', 'Total GHUs without trees', 
-                           'Total value without trees', 
-                           'Average price without trees', 
-                           'Median price without trees', 'Floor price', 
-                           'Total LTs traded', 'Average LT value', 
-                           'Supply of Credits', 'Years of Supply', 
-                           'LT Supply'], 
+summary = {'description': [
+                            'Total GHUs traded', 'Total GHUs value',
+                            'Average price per GHU',
+                            'Median price per GHU', 'Total GHUs without trees',
+                            'Total value without trees',
+                            'Average price without trees',
+                            'Median price without trees', 'Floor price',
+                            'Total LTs traded', 'Average LT value',
+                            'Supply of Credits', 'Years of Supply', 
+                            'LT Supply', 'Water Authority Supply (WA)',
+                            'Years of Supply without WA'
+                           ], 
                            'values': ['', '', '', '', '', '', '', '', 
-                                      '', '', '', '', '', '']}
+                                      '', '', '', '', '', '', '', '']}
 
 summary_df = pd.DataFrame(data=summary)
 
 summaries = dict()
 
 for k, v in hu_df.groupby('cma'):
+    # Total GHUs traded
     summary_df.loc[0, ['values']] = v['ghu'].sum()
+    # Total GHUs value
     summary_df.loc[1, ['values']] = v['price_ex_gst'].sum()
-    summary_df.loc[2, ['values']] = v['price_ex_gst'].sum() / v['ghu'].sum()
+    # Average price per GHU
+    summary_df.loc[2, ['values']] = v['ghu_price'].mean()
+    # Median price per GHU
     summary_df.loc[3, ['values']] = v['ghu_price'].median()
+    # Total GHUs without trees
     summary_df.loc[4, ['values']] = v.loc[v['lt'] == 0].agg('ghu').sum()
+    # Total value without trees
     summary_df.loc[5, ['values']] = v.loc[v['lt'] == 0].agg(
         'price_ex_gst').sum()
-    summary_df.loc[6, ['values']] = v.loc[v['lt'] == 0].agg(
-         'price_ex_gst').sum() / v.loc[v['lt'] == 0].agg('ghu').sum()
+    # Average price without trees
+    summary_df.loc[6, ['values']] = v.loc[v['lt'] == 0].agg('ghu_price').mean()
+    # Median price without trees
     summary_df.loc[7, ['values']] = v.loc[v['lt'] == 0].agg(
          'ghu_price').median()
+    # Floor price
     summary_df.loc[8, ['values']] = v['ghu_price'].min()
+    # Total LTs traded
     summary_df.loc[9, ['values']] = v['lt'].sum()
     # Calculate the theoretical value of trees
     # Total GHU value - Total GHU without trees value -
@@ -146,12 +173,30 @@ for k, v in hu_df.groupby('cma'):
         * summary_df.loc[6, ['values']])
         / summary_df.loc[9, ['values']]
         )
-    
+    # Supply of Credits
     summary_df.loc[11, ['values']] = supply_df[k].agg('GHU').sum()
+    # Years of Supply
     summary_df.loc[12, ['values']] = (summary_df.loc[11, ['values']]
         / summary_df.loc[0, ['values']])
+    # LT Supply
     summary_df.loc[13, ['values']] = supply_df[k].agg('LT').sum()
-    
+    # Calculate the number of credits owned by water authorities
+    wa_credits = 0
+    try :
+         for x in wa[k]:
+            wa_credits = (wa_credits 
+                          + supply_df[k].loc[supply_df[k]['Credit Site ID'] 
+                               == x].agg('GHU').sum())
+    except:
+         print(f"No Water Authority credits for {k}.\n")
+    # Water Authority Supply (WA)
+    summary_df.loc[14, ['values']] = wa_credits
+    # Years of Supply without WA
+    summary_df.loc[15, ['values']] = ((summary_df.loc[11, ['values']] 
+                                      - wa_credits)
+                                      / summary_df.loc[0, ['values']])
+
+
 
     summaries[k] = copy.deepcopy(summary_df)
 
