@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
@@ -9,7 +11,7 @@ from datetime import datetime
 
 
 opts = webdriver.FirefoxOptions()
-# opts.add_argument("--headless")
+opts.add_argument("--headless")
 driver = webdriver.Firefox(options = opts)
 
 cmas = ['Corangamite', 'Port Phillip and Westernport', 'Wimmera', \
@@ -25,7 +27,7 @@ supply_csv = '~/Documents/Trade Analysis/Supply_{}.csv'
 for x in cmas:
     print('Scraping supply data for:', x, '...\n')
     driver.get("https://nvcr.delwp.vic.gov.au/Search/GHU")
-    time.sleep(3)
+    time.sleep(2)
     
     ghu_element = driver.find_element(By.XPATH, 
             '//*[@id="GeneralGuidelineSearch"]/div[2]/div[1]/div/input')
@@ -48,7 +50,7 @@ for x in cmas:
 
     search_button.click()
 
-    time.sleep(4)
+    time.sleep(3)
 
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
