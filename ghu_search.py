@@ -50,7 +50,7 @@ for x in cmas:
 
     search_button.click()
 
-    time.sleep(3)
+    time.sleep(4)
 
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')

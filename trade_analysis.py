@@ -12,22 +12,27 @@ parser = argparse.ArgumentParser(description='Process trade prices and supply'
 parser.add_argument("-s", "--supply", required = True, default='supply.xlsx',
                     help='Name of the supply Excel data to read from.')
 parser.add_argument("-i", "--input", required = True, 
-                    help='The input trade price spreadsheet downloaded from'
-                        ' the NVCR. "https://www.environment.vic.gov.au/native-\
-                        vegetation/native-vegetation-removal-regulations"')
+                    help='The input trade price spreadsheet downloaded from '
+                         'the NVCR. "https://www.environment.vic.gov.au/native-'
+                         'vegetation/native-vegetation-removal-regulations"')
 parser.add_argument("-o", "--output", default='Trade-Analysis.xlsx',
                     help='The name of the file you would like to write the '
                         'anlysis to. Default is "Trade-Analysis.xlsx" in the '
                         'current directory')
+parser.add_argument("-b", "--start",
+                    help='The date you wish to do the analysis from. '
+                     'Default is 12 months ago')
+parser.add_argument("-e", "--end",
+                    help='The date you wish to do the analysis to. '
+                        'Format is YYYY-MM-DD'
+                        'Default is the end of the previous month')
 
 args = parser.parse_args()
 
 # Import the Traded Credits data with pandas
 # Define the Excel file to import
 trade_data = args.input
-
 supply_data = args.supply
-
 output_file = args.output
 
 # Define the property IDs of the Water Authorities
@@ -69,6 +74,12 @@ current_date = datetime.today()
 end_date = current_date.replace(day=1)
 end_date = end_date - timedelta(days=1)
 start_date = end_date - timedelta(days=365)
+
+if args.start:
+    start_date = datetime.strptime(args.start, '%Y-%m-%d')
+
+if args.end:
+    end_date = datetime.strptime(args.end, '%Y-%m-%d')
 
 # start_date = ('2022-06-01')
 # end_date = ('2023-05-31')
