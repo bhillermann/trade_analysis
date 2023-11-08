@@ -14,7 +14,7 @@ opts = webdriver.FirefoxOptions()
 opts.add_argument("--headless")
 driver = webdriver.Firefox(options = opts)
 
-cmas = ['Corangamite', 'Port Phillip and Westernport', 'Wimmera', \
+cmas = ['Corangamite', 'Melbourne Water', 'Wimmera', \
            'Glenelg Hopkins', 'Goulburn Broken', 'West Gippsland', \
            'East Gippsland', 'Mallee', 'North Central', 'North East']
 
