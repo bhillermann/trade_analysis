@@ -58,7 +58,7 @@ except FileNotFoundError as e:
     exit()
 
 # Grab the HU tab
-hu_df = trade_df.parse('Trade prices by HU')
+hu_df = trade_df.parse('Trade Prices by HU')
 
 # Rename the columns to something usable
 hu_df = hu_df.set_axis([
@@ -125,6 +125,7 @@ def fix_cmas(row):
     return cma
 
 hu_df['cma'] = hu_df.apply(lambda row: fix_cmas(row), axis=1)
+hu_df = hu_df.replace('Port Phillip and Westernport', 'Melbourne Water')
 
 # group by CMA and sum GHU, LT and then min, max, median, mean the price
 better_df = hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 
