@@ -1,11 +1,25 @@
+#!/usr/bin/env python3
+
 import pandas as pd
 from thefuzz import process
-import copy
 from datetime import datetime
+import argparse
+
+# Call argparse and define the arguments
+parser = argparse.ArgumentParser(description='Process NVCR trading information'
+                                 'to a clean CSV for importing into other'
+                                 'systems.')
+
+parser.add_argument("-i", "--input", required = True, 
+                    help='The input trade price spreadsheet downloaded from '
+                         'the NVCR. "https://www.environment.vic.gov.au/native-'
+                         'vegetation/native-vegetation-removal-regulations"')
+
+args = parser.parse_args()
 
 # Import the Traded Credits data with pandas
 # Define the Excel file to import
-trade_data = ('~/Documents/Trade Analysis/NVCR_Trade-prices_2023-Oct.xlsx')
+trade_data = args.input
 
 hu_output_file = ('~/Documents/Trade Analysis/Full-HU-Traded-Credits-{}.csv')
 shu_output_file = ('~/Documents/Trade Analysis/Full-SHU-Traded-Credits-{}.csv')
