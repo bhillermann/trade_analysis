@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Import the Traded Credits data with pandas
 # Define the Excel file to import
-trade_data = ('~/Documents/Trade Analysis/NVCR_Trade-prices_2023-Aug.xlsx')
+trade_data = ('~/Documents/Trade Analysis/NVCR_Trade-prices_2023-Oct.xlsx')
 
 hu_output_file = ('~/Documents/Trade Analysis/Full-HU-Traded-Credits-{}.csv')
 shu_output_file = ('~/Documents/Trade Analysis/Full-SHU-Traded-Credits-{}.csv')
@@ -18,7 +18,7 @@ except FileNotFoundError as e:
     exit()
 
 # Grab the HU tab
-hu_df = trade_df.parse('Trade prices by HU')
+hu_df = trade_df.parse('Trade Prices by HU')
 
 # Rename the columns to something usable
 hu_df = hu_df.set_axis(['date', 'cma', 'sbv', 'ghu', 'lt', 'sbu', 'ghu_price',\
@@ -58,6 +58,9 @@ def fix_cmas(row):
     return cma
 
 hu_df['cma'] = hu_df.apply(lambda row: fix_cmas(row), axis=1)
+
+# Change PPWP to Melbourne Water
+hu_df = hu_df.replace('Port Phillip and Westernport', 'Melbourne Water')
 
 hu_df['date'] = pd.to_datetime(hu_df['date'])
 
