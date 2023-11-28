@@ -9,6 +9,17 @@ import pandas as pd
 import copy
 from datetime import datetime
 
+import argparse
+
+# Call argparse and define the arguments
+parser = argparse.ArgumentParser(description='Scrape the NVCR for supply data.')
+parser.add_argument("-o", "--output", default='Supply.xlsx',
+                    help='The name of the file you would like to write the '
+                        'supply data to. Default is "Supply.xlsx" in '
+                        'the current directory')
+
+args = parser.parse_args()
+
 
 opts = webdriver.FirefoxOptions()
 opts.add_argument("--headless")
@@ -21,7 +32,7 @@ cmas = ['Corangamite', 'Melbourne Water', 'Wimmera', \
 all_supply = dict()
 big_df = pd.DataFrame()
 
-supply_xlsx = '~/Documents/Trade Analysis/Supply_{}.xlsx'
+supply_xlsx = args.output
 supply_csv = '~/Documents/Trade Analysis/Supply_{}.csv'
 
 for x in cmas:
