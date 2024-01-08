@@ -13,7 +13,7 @@ import argparse
 
 # Call argparse and define the arguments
 parser = argparse.ArgumentParser(description='Scrape the NVCR for supply data.')
-parser.add_argument("-o", "--output", default='Supply.xlsx',
+parser.add_argument("-o", "--output", default='Supply_{}.xlsx',
                     help='The name of the file you would like to write the '
                         'supply data to. Default is "Supply.xlsx" in '
                         'the current directory')
@@ -61,7 +61,7 @@ for x in cmas:
 
     search_button.click()
 
-    time.sleep(4)
+    time.sleep(5)
 
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
