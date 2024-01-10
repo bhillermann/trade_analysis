@@ -39,7 +39,7 @@ output_file = args.output
 wa = {}
 wa['Corangamite'] = ['BBA-2252']
 wa['Glenelg Hopkins'] = ['TFN-C0228 ']
-wa['Port Phillip and Westernport'] = [
+wa['Melbourne Water'] = [
      'BBA-0277', 'BBA-0670', 'BBA-0677', 'BBA-0678']
 wa['West Gippsland'] = ['BBA-3049', 'BBA-2845', 'BBA-2839', 'BBA-2790', 
                         'BBA-2789', 'BBA-2751', 'BBA-2766', 'BBA-2623']
@@ -81,11 +81,6 @@ if args.start:
 if args.end:
     end_date = datetime.strptime(args.end, '%Y-%m-%d')
 
-# start_date = ('2022-06-01')
-# end_date = ('2023-05-31')
-
-# start_date = datetime.strptime(start_date, '%Y-%m-%d')
-# end_date = datetime.strptime(end_date, '%Y-%m-%d')
 
 # Drop all trades outside of the date range
 hu_df = hu_df[((hu_df['date'] >= start_date) & (hu_df['date'] <= end_date))]
@@ -107,9 +102,6 @@ hu_df = hu_df[pd.isnull(hu_df['species'])]
 
 # Drop the HU columns we don't need
 hu_df = hu_df.drop(['sbu', 'shu_price', 'species'], axis=1)
-
-# Debug -- write the df to a file
-# hu_df.to_excel('~/Documents/output_hu_df.xlsx')
 
 # Make sure all LTs are integers
 hu_df['lt'] = hu_df['lt'].map(int)
