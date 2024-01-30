@@ -8,11 +8,11 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import copy
 from datetime import datetime
-
 import argparse
 
 # Call argparse and define the arguments
-parser = argparse.ArgumentParser(description='Scrape the NVCR for supply data.')
+parser = argparse.ArgumentParser(description='Scrape the NVCR for supply' 
+                                 'data.')
 parser.add_argument("-o", "--output", default='Supply_{}.xlsx',
                     help='The name of the file you would like to write the '
                         'supply data to. Default is "Supply.xlsx" in '
@@ -50,8 +50,8 @@ for x in cmas:
             '//*[@id="GeneralGuidelineSearch"]/div[2]/div[7]/div[2]/button')
 
     cma_select = Select(driver.find_element(By.XPATH, 
-            r'//*[@id="GeneralGuidelineSearch"]/div[2]/div[5]'
-            r'/div/table/tbody/tr/td[2]/div[2]/select'))
+            '//*[@id="GeneralGuidelineSearch"]/div[2]/div[5]'
+            '/div/table/tbody/tr/td[2]/div[2]/select'))
 
     ghu_element.send_keys("0.001")
     sbv_element.send_keys("0.001")
