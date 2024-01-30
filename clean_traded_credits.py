@@ -62,8 +62,8 @@ for x in ['sbv', 'ghu', 'lt', 'ghu_price', 'price_in_gst', 'price_ex_gst']:
 # Make sure all LTs are integers
 hu_df['lt'] = hu_df['lt'].map(int)
 
-choices = ['Corangamite', 'Port Phillip and Westernport', 'Wimmera', \
-           'Glenelg Hopkins', 'Goulburn Broken', 'West Gippsland', \
+choices = ['Corangamite', 'Port Phillip and Westernport', 'Melbourne Water',
+           'Wimmera', 'Glenelg Hopkins', 'Goulburn Broken', 'West Gippsland',
            'East Gippsland', 'Mallee', 'North Central', 'North East']
 
 # Clean up all the inconsistancies in CMA names
