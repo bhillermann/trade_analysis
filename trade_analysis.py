@@ -5,12 +5,14 @@ from thefuzz import process
 import copy
 from datetime import datetime, timedelta
 import argparse
+from ghu_search import get_supply
 
 # Call argparse and define the arguments
 parser = argparse.ArgumentParser(description='Process trade prices and supply'
                                  'date to do trade analysis for the past year.')
-parser.add_argument("-s", "--supply", required = True, default='supply.xlsx',
-                    help='Name of the supply Excel data to read from.')
+parser.add_argument("-s", "--supply", required = False,
+                    help='Name of the supply Excel data to read from. Default'
+                    'is to scrape new data.')
 parser.add_argument("-i", "--input", required = True, 
                     help='The input trade price spreadsheet downloaded from '
                          'the NVCR. "https://www.environment.vic.gov.au/native-'
@@ -32,8 +34,19 @@ args = parser.parse_args()
 # Import the Traded Credits data with pandas
 # Define the Excel file to import
 trade_data = args.input
-supply_data = args.supply
 output_file = args.output
+download_supply = True
+
+try:
+    supply_data = args.supply
+    download_supply = False
+except:
+    print('Value not set.')
+
+if download_supply:
+    supply_data = 'Supply_{}.xlsx'.format(datetime.now().\
+                                        strftime("%Y%m%d_%H%M%S"))
+    get_supply(supply_data, False)
 
 # Define the property IDs of the Water Authorities
 wa = {}
