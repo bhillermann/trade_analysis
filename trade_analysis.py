@@ -106,8 +106,8 @@ hu_df = hu_df.drop(['sbu', 'shu_price', 'species'], axis=1)
 # Make sure all LTs are integers
 hu_df['lt'] = hu_df['lt'].map(int)
 
-choices = ['Corangamite', 'Port Phillip and Westernport', 'Wimmera', 
-           'Glenelg Hopkins', 'Goulburn Broken', 'West Gippsland', 
+choices = ['Corangamite', 'Melbourne Water', 'Port Phillip and Westernport', 
+           'Wimmera', 'Glenelg Hopkins', 'Goulburn Broken', 'West Gippsland', 
            'East Gippsland', 'Mallee', 'North Central', 'North East'
            ]
 
