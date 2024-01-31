@@ -6,6 +6,7 @@ import copy
 from datetime import datetime, timedelta
 import argparse
 from ghu_search import get_supply
+from download_nvcr import get_trade_data
 
 # Call argparse and define the arguments
 parser = argparse.ArgumentParser(description='Process trade prices and supply'
@@ -13,10 +14,12 @@ parser = argparse.ArgumentParser(description='Process trade prices and supply'
 parser.add_argument("-s", "--supply", required = False,
                     help='Name of the supply Excel data to read from. Default'
                     'is to scrape new data.')
-parser.add_argument("-i", "--input", required = True, 
+parser.add_argument("-i", "--input", required = False, 
                     help='The input trade price spreadsheet downloaded from '
-                         'the NVCR. "https://www.environment.vic.gov.au/native-'
-                         'vegetation/native-vegetation-removal-regulations"')
+                         'the NVCR. "https://www.environment.vic.gov.au/'
+                         'native-vegetation/native-vegetation-removal-'
+                         'regulations".'
+                         'Not using this switch will download a new file.')
 parser.add_argument("-o", "--output", default='Trade-Analysis.xlsx',
                     help='The name of the file you would like to write the '
                         'anlysis to. Default is "Trade-Analysis.xlsx" in the '
@@ -33,20 +36,25 @@ args = parser.parse_args()
 
 # Import the Traded Credits data with pandas
 # Define the Excel file to import
-trade_data = args.input
 output_file = args.output
-download_supply = True
+download_trade_data = False
 
-try:
-    supply_data = args.supply
-    download_supply = False
-except:
-    print('Value not set.')
-
-if download_supply:
-    supply_data = 'Supply_{}.xlsx'.format(datetime.now().\
-                                        strftime("%Y%m%d_%H%M%S"))
+if args.supply == None:
+    print('Downloading supply data...\n\n')
+    supply_data = 'Supply_{}.xlsx'.format(datetime.now().
+                                          strftime("%Y%m%d_%H%M%S"))
     get_supply(supply_data, False)
+else:
+    supply_data = args.supply
+
+if args.input == None:
+    print('Downloading NVCR trade data...')
+    trade_data = 'NVCR_Trade-prices-{}.xlsx'.format(datetime.now().
+                                                    strftime("%Y%m%d_%H%M%S"))
+    get_trade_data(trade_data)
+else:
+    trade_data = args.input
+
 
 # Define the property IDs of the Water Authorities
 wa = {}
