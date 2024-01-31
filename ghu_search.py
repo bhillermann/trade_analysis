@@ -9,6 +9,7 @@ import pandas as pd
 import copy
 from datetime import datetime
 import argparse
+from io import StringIO
 
 
 def get_supply(output, csv=False):
@@ -56,7 +57,7 @@ def get_supply(output, csv=False):
         html = driver.page_source
         soup = BeautifulSoup(html, 'html.parser')
         div = soup.find_all("table", {"class":"table"})
-        all_tables = pd.read_html(str(div))
+        all_tables = pd.read_html(StringIO(str(div)))
         supply_table = all_tables[4]
         all_supply[x] = copy.deepcopy(all_tables[4])
         big_df = pd.concat([big_df, supply_table], ignore_index=True)
