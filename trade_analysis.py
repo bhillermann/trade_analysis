@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import pandas as pd
+import numpy as np
 from thefuzz import process
 import copy
 from datetime import datetime, timedelta
@@ -118,6 +119,36 @@ shu_df = hu_df[pd.notnull(hu_df['species'])]
 # Drop the SHU columns we don't need
 shu_df = shu_df.drop(['cma', 'sbv', 'ghu', 'ghu_price'], axis=1)
 
+# Change Date from datetime to date
+shu_df['date']=shu_df['date'].dt.date
+
+# Create Summary SHU Data
+shu_summary = {'Description': [
+                                'Number of SHU trades', 
+                                'Total SHUs traded' ,
+                                'Total Value of SHU trades', 
+                                'Average Price per SHU',
+                                'SHU Floor Price',
+                                'SHU Ceiling Price',
+                                'SHU median price'
+                            ], 
+                           'Values': [
+                                (shu_df.groupby(['date', 'shu_price'])
+                                 .sum('sbu')['sbu'].count()),
+                                shu_df['sbu'].sum(), 
+                                shu_df['price_in_gst'].sum(), 
+                                (shu_df['price_in_gst'].sum()
+                                 / shu_df['sbu'].sum()), 
+                                shu_df['shu_price'].min(), 
+                                shu_df['shu_price'].max(), 
+                                np.median(shu_df['shu_price'].unique())
+                            ]}
+
+shu_summary_df = pd.DataFrame(shu_summary)
+
+
+print('SHU Summary Data:\n\n', shu_summary_df, '\n\n------------------------')
+
 # Drop the SHU trades so we only have GHU trades
 hu_df = hu_df[pd.isnull(hu_df['species'])]
 
@@ -140,11 +171,12 @@ def fix_cmas(row):
 hu_df['cma'] = hu_df.apply(lambda row: fix_cmas(row), axis=1)
 hu_df = hu_df.replace('Port Phillip and Westernport', 'Melbourne Water')
 
-# group by CMA and sum GHU, LT and then min, max, median, mean the price
-better_df = hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 
-        'lt': 'sum', 'ghu_price': ['min', 'max', 'median']})
+# Change Date from datetime to date
+hu_df['date']=hu_df['date'].dt.date
 
-print(better_df, '\n')
+# group by CMA and sum GHU, LT and then min, max, median the price
+print(hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 
+        'lt': 'sum', 'ghu_price': ['min', 'max', 'median']}))
 
 summary = {'description': [
                             'Total GHUs traded', 'Total GHUs value',
@@ -226,25 +258,114 @@ for k, v in hu_df.groupby('cma'):
     summaries[k] = copy.deepcopy(summary_df)
 
 
+# Writing it all to Excel
+
 writer = pd.ExcelWriter(output_file.format(datetime.now().\
                                       strftime("%Y%m%d_%H%M%S")), 
                     engine='xlsxwriter',
                     engine_kwargs={'options':{'strings_to_formulas': False}})
 
-hu_df.to_excel(writer, sheet_name='HU Data')
-shu_df.to_excel(writer, sheet_name='SHU Data')
+workbook = writer.book
+
+# Define the different formats
+
+currency_format = workbook.add_format(
+    {
+        'num_format': '$#,##0.00'
+    }
+)
+
+date_format = workbook.add_format(
+    {
+        'num_format': 'yyyy-mm-dd;@'     
+    }
+)
+
+heading_format = workbook.add_format(
+        {
+            'bold': True,
+            'text_wrap': True, 
+            'border': 1
+        }
+    )
+
+# Write the HU dataframe to sheet HU Data
+hu_df.to_excel(writer, sheet_name='HU Data', 
+               startrow=1, header=False, index=False)
+
+# Create some human readable headers
+hu_header = ('Date', 'CMA', 'SBV', 'GHU', 'LT', 'GHU Price', 
+             'Price (in GST)', 'Price (ex GST)') 
+
+column_settings = [{"header": column} for column in hu_header]
+
+# Get the dimensions of the dataframe.
+(max_row, max_col) = hu_df.shape
+
+# Set the active sheet to HU Data
+worksheet = writer.sheets['HU Data']
+
+# Add the Excel table structure. Pandas added the data.
+worksheet.add_table(0, 0, max_row, max_col - 1, 
+                    {'columns': column_settings,
+                     'style': 'Table Style Light 11' })
+
+worksheet.set_column(max_col-3, max_col - 1, None, currency_format)
+
+worksheet.autofit()
+
+# Write the SHU dataframe to sheet SHu Data
+shu_df.to_excel(writer, sheet_name='SHU Data', header=False, index=False)
+
+# Create some human readable headers
+shu_header = ('Date', 'LT',	'SHUs',	'SHU Price', 'Species', 
+              'Price (in GST)', 'Price (ex GST)') 
+
+column_settings = [{"header": column} for column in shu_header]
+
+# Get the dimensions of the dataframe.
+(max_row, max_col) = shu_df.shape
+
+# Set the active sheet to HU Data
+worksheet = writer.sheets['SHU Data']
+
+# Add the Excel table structure. Pandas added the data.
+worksheet.add_table(0, 0, max_row, max_col - 1, 
+                    {'columns': column_settings,
+                     'style': 'Table Style Light 11' })
+
+# Set currency format on pricing columns
+worksheet.set_column(max_col-2, max_col - 1, None, currency_format)
+worksheet.set_column(3, 3, None, currency_format)
+
+# Write the SHU Summary data
+shu_summary_df.to_excel(writer, sheet_name='SHU Data', 
+                        startrow=1, startcol=8, index=False, header=False)
+
+# Get the dimensions of the dataframe.
+(max_row, max_col) = shu_summary_df.shape
+
+
+# Add the Excel table structure. Pandas added the data.
+worksheet.add_table(1, 8, max_row, max_col +8 - 1, 
+                    {
+                        'style': 'Table Style Light 18',
+                        'autofilter': False,
+                        'header_row': False,
+                        'first_column': True
+                    })
+
+# Autofit columns
+worksheet.autofit()
+
+
 hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 'lt': 'sum', 
     'ghu_price': ['min', 'max', 'mean', 'median']}).to_excel(
-         writer, sheet_name='Summary')
+         writer, sheet_name='Summary', header=False)
 
 for cma in summaries:
-        summaries[cma].to_excel(writer, sheet_name=cma)
-        for column in summaries[cma]:
-             column_width = max(summaries[cma][column].astype(str).map(len)
-                                .max(), len(column))
-             col_idx = summaries[cma].columns.get_loc(column)
-             if col_idx == 0:
-                  column_width = 2
-             writer.sheets[cma].set_column(col_idx, col_idx, column_width)
+        summaries[cma].columns = ['Description', 'Values']
+        summaries[cma].to_excel(writer, sheet_name=cma, index=False)
+        writer.sheets[cma].autofit()
 
 writer.close()
