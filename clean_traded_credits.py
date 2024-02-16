@@ -57,7 +57,8 @@ hu_df = hu_df.drop(['unnamed', 'sbu', 'shu_price', 'species'], axis=1)
 
 # Replace any NaN values with 0
 for x in ['sbv', 'ghu', 'lt', 'ghu_price', 'price_in_gst', 'price_ex_gst']:
-    hu_df[x] = hu_df[x].infer_objects(copy=False).fillna(0)
+    hu_df[x] = hu_df[x].infer_objects(copy=False).fillna(0) # Have to infer
+    # objects as downcasting behaviour is deprecated 
 
 # Make sure all LTs are integers
 hu_df['lt'] = hu_df['lt'].map(int)
