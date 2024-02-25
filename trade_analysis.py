@@ -203,7 +203,7 @@ for k, v in hu_df.groupby('cma'):
     # Total GHUs value
     summary_df.loc[1, ['values']] = v['price_ex_gst'].sum()
     # Average price per GHU
-    summary_df.loc[2, ['values']] = v['ghu_price'].mean()
+    summary_df.loc[2, ['values']] = v['price_ex_gst'].sum() / v['ghu'].sum()
     # Median price per GHU
     summary_df.loc[3, ['values']] = v['ghu_price'].median()
     # Total GHUs without trees
@@ -212,7 +212,10 @@ for k, v in hu_df.groupby('cma'):
     summary_df.loc[5, ['values']] = v.loc[v['lt'] == 0].agg(
         'price_ex_gst').sum()
     # Average price without trees
-    summary_df.loc[6, ['values']] = v.loc[v['lt'] == 0].agg('ghu_price').mean()
+    summary_df.loc[6, ['values']] = (
+            v.loc[v['lt'] == 0].agg('price_ex_gst').sum() 
+            / v.loc[v['lt'] == 0].agg('ghu').sum()
+        )
     # Median price without trees
     summary_df.loc[7, ['values']] = v.loc[v['lt'] == 0].agg(
          'ghu_price').median()
@@ -289,57 +292,69 @@ heading_format = workbook.add_format(
         }
     )
 
+# Writing the HU information ------------------------------------------------
+sheetname = 'HU Data'
 # Write the HU dataframe to sheet HU Data
-hu_df.to_excel(writer, sheet_name='HU Data', 
+hu_df.to_excel(writer, sheet_name=sheetname, 
                startrow=1, header=False, index=False)
 
 # Create some human readable headers
-hu_header = ('Date', 'CMA', 'SBV', 'GHU', 'LT', 'GHU Price', 
+header = ('Date', 'CMA', 'SBV', 'GHU', 'LT', 'GHU Price', 
              'Price (in GST)', 'Price (ex GST)') 
 
-column_settings = [{"header": column} for column in hu_header]
+column_settings = [{"header": column} for column in header]
 
 # Get the dimensions of the dataframe.
 (max_row, max_col) = hu_df.shape
 
 # Set the active sheet to HU Data
-worksheet = writer.sheets['HU Data']
+worksheet = writer.sheets[sheetname]
 
 # Add the Excel table structure. Pandas added the data.
 worksheet.add_table(0, 0, max_row, max_col - 1, 
-                    {'columns': column_settings,
-                     'style': 'Table Style Light 11' })
+                    {
+                        'columns': column_settings,
+                        'style': 'Table Style Light 11',
+                        'banded_columns': True
+                    })
 
 worksheet.set_column(max_col-3, max_col - 1, None, currency_format)
 
 worksheet.autofit()
 
-# Write the SHU dataframe to sheet SHu Data
-shu_df.to_excel(writer, sheet_name='SHU Data', header=False, index=False)
+# End HU dataframe ----------------------------------------------------------
+
+# Start - Writing SHU information to file -----------------------------------
+sheetname = 'SHU Data'
+# Write the SHU dataframe to sheet SHU Data
+shu_df.to_excel(writer, sheet_name=sheetname, header=False, index=False)
 
 # Create some human readable headers
-shu_header = ('Date', 'LT',	'SHUs',	'SHU Price', 'Species', 
+header = ('Date', 'LT',	'SHUs',	'SHU Price', 'Species', 
               'Price (in GST)', 'Price (ex GST)') 
 
-column_settings = [{"header": column} for column in shu_header]
+column_settings = [{"header": column} for column in header]
 
 # Get the dimensions of the dataframe.
 (max_row, max_col) = shu_df.shape
 
-# Set the active sheet to HU Data
-worksheet = writer.sheets['SHU Data']
+# Set the active sheet to SHU Data
+worksheet = writer.sheets[sheetname]
 
 # Add the Excel table structure. Pandas added the data.
 worksheet.add_table(0, 0, max_row, max_col - 1, 
-                    {'columns': column_settings,
-                     'style': 'Table Style Light 11' })
+                    {
+                        'columns': column_settings,
+                        'style': 'Table Style Light 11',
+                        'banded_columns': True
+                    })
 
 # Set currency format on pricing columns
 worksheet.set_column(max_col-2, max_col - 1, None, currency_format)
 worksheet.set_column(3, 3, None, currency_format)
 
 # Write the SHU Summary data
-shu_summary_df.to_excel(writer, sheet_name='SHU Data', 
+shu_summary_df.to_excel(writer, sheet_name=sheetname, 
                         startrow=1, startcol=8, index=False, header=False)
 
 # Get the dimensions of the dataframe.
@@ -357,11 +372,45 @@ worksheet.add_table(1, 8, max_row, max_col +8 - 1,
 
 # Autofit columns
 worksheet.autofit()
+# End SHU dataframe ---------------------------------------------------------
 
+# Overview Summary Dataframe ------------------------------------------------
+sheetname = 'HU Summary'
+# Create high level summary data
+hu_summary = hu_df.groupby('cma', as_index=False).agg(
+    {'ghu': 'sum', 'lt': 'sum', 'ghu_price': ['min', 'max', 'mean', 'median']}
+    )
 
-hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 'lt': 'sum', 
-    'ghu_price': ['min', 'max', 'mean', 'median']}).to_excel(
-         writer, sheet_name='Summary', header=False)
+# Write it to Excel 
+hu_summary.to_excel(writer, sheet_name=sheetname, header=False)
+
+# Create some human readable headers
+header = ('Index', 'CMA', 'GHUs', 'LTs', 'GHU Floor Price', 
+                     'GHU Ceiling Price', 'GHU Mean', 'GHU Median') 
+
+column_settings = [{"header": column} for column in header]
+
+# Get the dimensions of the dataframe.
+(max_row, max_col) = hu_summary.shape
+
+# Set the active sheet to SHU Data
+worksheet = writer.sheets[sheetname]
+
+# Add the Excel table structure. Pandas added the data.
+worksheet.add_table(0, 0, max_row, max_col, 
+                    {
+                        'columns': column_settings,
+                        'style': 'Table Style Light 11',
+                        'banded_columns': True
+                    })
+
+# Set currency format on pricing columns
+worksheet.set_column(max_col-3, max_col, None, currency_format)
+
+# Autofit columns
+worksheet.autofit()
+
+# End Overview Summary data -------------------------------------------------
 
 for cma in summaries:
         summaries[cma].columns = ['Description', 'Values']
