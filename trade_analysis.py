@@ -11,15 +11,16 @@ from download_nvcr import get_trade_data
 
 # Call argparse and define the arguments
 parser = argparse.ArgumentParser(description='Process trade prices and supply'
-                                 'date to do trade analysis for the past year.')
+                                 'date to do trade analysis for the past '
+                                 'year.')
 parser.add_argument("-s", "--supply", required = False,
                     help='Name of the supply Excel data to read from. Default'
-                    'is to scrape new data.')
+                    ' is to scrape new data.')
 parser.add_argument("-i", "--input", required = False, 
                     help='The input trade price spreadsheet downloaded from '
                          'the NVCR. "https://www.environment.vic.gov.au/'
                          'native-vegetation/native-vegetation-removal-'
-                         'regulations".'
+                         'regulations". '
                          'Not using this switch will download a new file.')
 parser.add_argument("-o", "--output", default='Trade-Analysis.xlsx',
                     help='The name of the file you would like to write the '
