@@ -137,8 +137,8 @@ shu_summary = {'Description': [
                                 (shu_df.groupby(['date', 'shu_price'])
                                  .sum('sbu')['sbu'].count()),
                                 shu_df['sbu'].sum(), 
-                                shu_df['price_in_gst'].sum(), 
-                                (shu_df['price_in_gst'].sum()
+                                shu_df['price_ex_gst'].sum(), 
+                                (shu_df['price_ex_gst'].sum()
                                  / shu_df['sbu'].sum()), 
                                 shu_df['shu_price'].min(), 
                                 shu_df['shu_price'].max(), 
@@ -149,6 +149,7 @@ shu_summary_df = pd.DataFrame(shu_summary)
 
 
 print('SHU Summary Data:\n\n', shu_summary_df, '\n\n------------------------')
+print (shu_df)
 
 # Drop the SHU trades so we only have GHU trades
 hu_df = hu_df[pd.isnull(hu_df['species'])]
@@ -179,6 +180,8 @@ hu_df['date']=hu_df['date'].dt.date
 print(hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 
         'lt': 'sum', 'ghu_price': ['min', 'max', 'median']}))
 
+# This needs to be cleaned up. Use normal headers and then relable after 
+# calculations
 summary = {'description': [
                             'Total GHUs traded', 'Total GHUs value',
                             'Average price per GHU',
@@ -225,15 +228,23 @@ for k, v in hu_df.groupby('cma'):
     # Total LTs traded
     summary_df.loc[9, ['values']] = v['lt'].sum()
     # Calculate the theoretical value of trees
-    # Total GHU value - Total GHU without trees value -
-    # - Tree GHUs * Avg Price without LTs / Number of LTs
+    # (Total GHU value - ((Total GHUs - Total GHUs without trees)
+    # * Avg price without trees) - Total value without trees)
+    # / Total LTs Traded
     summary_df.loc[10, ['values']] = (
-        (summary_df.loc[1, ['values']]
-        - summary_df.loc[5, ['values']]
-        - v.loc[v['lt'] > 0].agg('ghu').sum()
-        * summary_df.loc[6, ['values']])
-        / summary_df.loc[9, ['values']]
+        (
+            summary_df.loc[1, ['values']]
+            - (
+                (
+                    summary_df.loc[0, ['values']]
+                    - summary_df.loc[4, ['values']]
+                )
+                * summary_df.loc[6, ['values']]
+            )  
+            - summary_df.loc[5, ['values']]
         )
+        / summary_df.loc[9, ['values']]
+    )
     # Supply of Credits
     summary_df.loc[11, ['values']] = supply_df[k].agg('GHU').sum()
     # Years of Supply
@@ -328,7 +339,8 @@ worksheet.autofit()
 # Start - Writing SHU information to file -----------------------------------
 sheetname = 'SHU Data'
 # Write the SHU dataframe to sheet SHU Data
-shu_df.to_excel(writer, sheet_name=sheetname, header=False, index=False)
+shu_df.to_excel(writer, sheet_name=sheetname, startrow=1, 
+                header=False, index=False)
 
 # Create some human readable headers
 header = ('Date', 'LT',	'SHUs',	'SHU Price', 'Species', 
