@@ -430,4 +430,25 @@ for cma in summaries:
         summaries[cma].to_excel(writer, sheet_name=cma, index=False)
         writer.sheets[cma].autofit()
 
+        # Get the dimensions of the dataframe.
+        (max_row, max_col) = summaries[cma].shape
+
+        print(max_row, " x ", max_col)
+
+        worksheet = writer.sheets[cma]
+
+        # Create some human readable headers
+        header = ('Metric', 'Value') 
+
+        column_settings = [{"header": column} for column in header]
+
+        # Add the Excel table structure. Pandas added the data.
+        worksheet.add_table(0, 0, max_row, max_col - 1, 
+                            {
+                                'columns': column_settings,
+                                'style': 'Table Style Light 11',
+                                'banded_columns': True,
+                                'autofilter': False
+                            })
+
 writer.close()
