@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 import argparse
 from ghu_search import get_supply
 from download_nvcr import get_trade_data
+from openpyxl import load_workbook
+from openpyxl.styles import Font
 
 # Call argparse and define the arguments
 parser = argparse.ArgumentParser(description='Process trade prices and supply'
@@ -275,8 +277,7 @@ for k, v in hu_df.groupby('cma'):
 
 # Writing it all to Excel
 
-writer = pd.ExcelWriter(output_file.format(datetime.now().\
-                                      strftime("%Y%m%d_%H%M%S")), 
+writer = pd.ExcelWriter(output_file, 
                     engine='xlsxwriter',
                     engine_kwargs={'options':{'strings_to_formulas': False}})
 
@@ -289,20 +290,6 @@ currency_format = workbook.add_format(
         'num_format': '$#,##0.00'
     }
 )
-
-date_format = workbook.add_format(
-    {
-        'num_format': 'yyyy-mm-dd;@'     
-    }
-)
-
-heading_format = workbook.add_format(
-        {
-            'bold': True,
-            'text_wrap': True, 
-            'border': 1
-        }
-    )
 
 # Writing the HU information ------------------------------------------------
 sheetname = 'HU Data'
@@ -433,8 +420,6 @@ for cma in summaries:
         # Get the dimensions of the dataframe.
         (max_row, max_col) = summaries[cma].shape
 
-        print(max_row, " x ", max_col)
-
         worksheet = writer.sheets[cma]
 
         # Create some human readable headers
@@ -452,3 +437,46 @@ for cma in summaries:
                             })
 
 writer.close()
+
+# Complete the formatting that can't be done by XlsxWriter. Use openpyxl
+
+workbook = load_workbook(filename=output_file)
+
+# Set the font format we want to use
+default_font = Font(name='Rubik Light', size=10)
+
+# Set the currenct formate
+currency_format = '$#,##0.00'
+
+# Iterate over all cells in all sheets and set the font
+for x in workbook.sheetnames:
+    sheet = workbook[x]
+    for row in sheet["A:J"]:
+        for cell in row:
+            cell.font = default_font    
+
+# Set the currency format on the summary table in SHU Data tab --------------
+sheet = workbook['SHU Data']
+
+# Definte which cells on the CMA pages need to be set to currency
+for row in sheet["J4:J8"]:
+    for cell in row:
+        cell.number_format = currency_format
+
+
+# Definte the CMA Summary pages we have to iterate through
+cmas = ['Corangamite', 'Melbourne Water', 'Wimmera', 'Glenelg Hopkins', 
+           'Goulburn Broken', 'West Gippsland', 'East Gippsland', 'Mallee', 
+           'North Central', 'North East'
+           ]
+
+# Definte which cells on the CMA pages need to be set to currency
+currency_cells = ('B3', 'B4', 'B5', 'B7', 'B8', 'B9', 'B10', 'B12')
+
+# Iterate over the CMA sheets and set the currency format
+for x in cmas:
+    sheet = workbook[x]
+    for cells in currency_cells:
+        sheet[cells].number_format = currency_format
+    
+workbook.save(filename=output_file)
