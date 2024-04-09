@@ -48,6 +48,7 @@ if args.supply == None:
     supply_data = 'Supply_{}.xlsx'.format(datetime.now().
                                           strftime("%Y%m%d_%H%M%S"))
     get_supply(supply_data, False)
+    print('Supply data saved as: ', supply_data)
 else:
     supply_data = args.supply
 
@@ -56,6 +57,7 @@ if args.input == None:
     trade_data = 'NVCR_Trade-prices-{}.xlsx'.format(datetime.now().
                                                     strftime("%Y%m%d_%H%M%S"))
     get_trade_data(trade_data)
+    print('Trade data saved as: ', trade_data)
 else:
     trade_data = args.input
 
@@ -149,10 +151,6 @@ shu_summary = {'Description': [
 
 shu_summary_df = pd.DataFrame(shu_summary)
 
-
-print('SHU Summary Data:\n\n', shu_summary_df, '\n\n------------------------')
-print (shu_df)
-
 # Drop the SHU trades so we only have GHU trades
 hu_df = hu_df[pd.isnull(hu_df['species'])]
 
@@ -178,10 +176,6 @@ hu_df = hu_df.replace('Port Phillip and Westernport', 'Melbourne Water')
 # Change Date from datetime to date
 hu_df['date']=hu_df['date'].dt.date
 
-# group by CMA and sum GHU, LT and then min, max, median the price
-print(hu_df.groupby('cma', as_index=False).agg({'ghu': 'sum', 
-        'lt': 'sum', 'ghu_price': ['min', 'max', 'median']}))
-
 # This needs to be cleaned up. Use normal headers and then relable after 
 # calculations
 summary = {'description': [
@@ -203,7 +197,9 @@ summary_df = pd.DataFrame(data=summary)
 
 summaries = dict()
 
+print('Calculating per CMA data-------------------------------------------\n')
 for k, v in hu_df.groupby('cma'):
+    print(f'Crunching data for {k}...\n')
     # Total GHUs traded
     summary_df.loc[0, ['values']] = v['ghu'].sum()
     # Total GHUs value
@@ -276,6 +272,8 @@ for k, v in hu_df.groupby('cma'):
 
 
 # Writing it all to Excel
+
+print('Creating Excel Spreadsheet...\n\n')
 
 writer = pd.ExcelWriter(output_file, 
                     engine='xlsxwriter',
@@ -389,7 +387,8 @@ hu_summary.to_excel(writer, sheet_name=sheetname, header=False)
 
 # Create some human readable headers
 header = ('Index', 'CMA', 'GHUs', 'LTs', 'Total Value', 'GHU Floor Price', 
-                     'GHU Ceiling Price', 'GHU Mean', 'GHU Median') 
+                     'GHU Ceiling Price', 'GHU Mean', 'GHU Median', 
+                     'GHU Weighted Average') 
 
 column_settings = [{"header": column} for column in header]
 
@@ -400,7 +399,7 @@ column_settings = [{"header": column} for column in header]
 worksheet = writer.sheets[sheetname]
 
 # Add the Excel table structure. Pandas added the data.
-worksheet.add_table(0, 0, max_row, max_col, 
+worksheet.add_table(0, 0, max_row, max_col + 1, 
                     {
                         'columns': column_settings,
                         'style': 'Table Style Light 11',
@@ -408,7 +407,7 @@ worksheet.add_table(0, 0, max_row, max_col,
                     })
 
 # Set currency format on pricing columns
-worksheet.set_column(max_col-3, max_col, None, currency_format)
+worksheet.set_column(max_col - 4, max_col + 1, None, currency_format)
 
 # Autofit columns
 worksheet.autofit()
@@ -443,6 +442,8 @@ writer.close()
 
 # Complete the formatting that can't be done by XlsxWriter. Use openpyxl
 
+print('Putting final touches on formatting...\n\n')
+
 workbook = load_workbook(filename=output_file)
 
 # Set the font format we want to use
@@ -456,24 +457,33 @@ for x in workbook.sheetnames:
     sheet = workbook[x]
     for row in sheet["A:J"]:
         for cell in row:
-            cell.font = default_font    
+            cell.font = default_font
+
+# Set the weighted average formula on the CMA Summary page
+sheet = workbook['HU Summary']
+
+# Define which cells need the formula
+for row in sheet["J2:J11"]:
+    for cell in row:
+        cell.value = "=E{row}/C{row}".format(row=cell.row)
+        cell.number_format = currency_format
 
 # Set the currency format on the summary table in SHU Data tab --------------
 sheet = workbook['SHU Data']
 
-# Definte which cells on the CMA pages need to be set to currency
+# Define which cells in the summary table need to be set to currency
 for row in sheet["J4:J8"]:
     for cell in row:
         cell.number_format = currency_format
 
 
-# Definte the CMA Summary pages we have to iterate through
+# Define the CMA Summary pages we have to iterate through
 cmas = ['Corangamite', 'Melbourne Water', 'Wimmera', 'Glenelg Hopkins', 
            'Goulburn Broken', 'West Gippsland', 'East Gippsland', 'Mallee', 
            'North Central', 'North East'
            ]
 
-# Definte which cells on the CMA pages need to be set to currency
+# Define which cells on the CMA pages need to be set to currency
 currency_cells = ('B3', 'B4', 'B5', 'B7', 'B8', 'B9', 'B10', 'B12')
 
 # Iterate over the CMA sheets and set the currency format
@@ -483,3 +493,5 @@ for x in cmas:
         sheet[cells].number_format = currency_format
     
 workbook.save(filename=output_file)
+
+print('Analyses complete.')
