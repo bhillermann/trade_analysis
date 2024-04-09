@@ -378,7 +378,10 @@ worksheet.autofit()
 sheetname = 'HU Summary'
 # Create high level summary data
 hu_summary = hu_df.groupby('cma', as_index=False).agg(
-    {'ghu': 'sum', 'lt': 'sum', 'ghu_price': ['min', 'max', 'mean', 'median']}
+    {
+        'ghu': 'sum', 'lt': 'sum', 'price_ex_gst': 'sum', 
+        'ghu_price': ['min', 'max', 'mean', 'median']
+    }
     )
 
 # Write it to Excel 
