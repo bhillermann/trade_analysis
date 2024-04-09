@@ -388,7 +388,7 @@ hu_summary = hu_df.groupby('cma', as_index=False).agg(
 hu_summary.to_excel(writer, sheet_name=sheetname, header=False)
 
 # Create some human readable headers
-header = ('Index', 'CMA', 'GHUs', 'LTs', 'GHU Floor Price', 
+header = ('Index', 'CMA', 'GHUs', 'LTs', 'Total Value', 'GHU Floor Price', 
                      'GHU Ceiling Price', 'GHU Mean', 'GHU Median') 
 
 column_settings = [{"header": column} for column in header]
