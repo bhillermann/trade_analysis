@@ -108,12 +108,11 @@ if args.start:
 if args.end:
     end_date = datetime.strptime(args.end, '%Y-%m-%d')
 
-
-# Drop all trades outside of the date range
-hu_df = hu_df[((hu_df['date'] >= start_date) & (hu_df['date'] <= end_date))]
-
 # Ensure all 'cma' entries are type string
 hu_df['cma'] = hu_df['cma'].map(str)
+
+# Change Date from datetime to date
+hu_df['date']=hu_df['date'].dt.date
 
 # Drop the last column because it's not needed
 hu_df = hu_df.drop(['unnamed'], axis=1)
@@ -121,11 +120,15 @@ hu_df = hu_df.drop(['unnamed'], axis=1)
 # Grab the SHUs from the HU dataframe
 shu_df = hu_df[pd.notnull(hu_df['species'])]
 
+# Drop all HU trades outside of the date range
+hu_df = hu_df[((hu_df['date'] >= start_date.date()) & (hu_df['date'] <= end_date.date()))]
+
+# Drop all SHU trades outside of a three year period from end date
+shu_df = shu_df[((shu_df['date'] >= end_date.date() - timedelta(days=1095)) & 
+                 (shu_df['date'] <= end_date.date()))]
+
 # Drop the SHU columns we don't need
 shu_df = shu_df.drop(['cma', 'sbv', 'ghu', 'ghu_price'], axis=1)
-
-# Change Date from datetime to date
-shu_df['date']=shu_df['date'].dt.date
 
 # Create Summary SHU Data
 shu_summary = {'Description': [
@@ -172,9 +175,6 @@ def fix_cmas(row):
 
 hu_df['cma'] = hu_df.apply(lambda row: fix_cmas(row), axis=1)
 hu_df = hu_df.replace('Port Phillip and Westernport', 'Melbourne Water')
-
-# Change Date from datetime to date
-hu_df['date']=hu_df['date'].dt.date
 
 # This needs to be cleaned up. Use normal headers and then relable after 
 # calculations
