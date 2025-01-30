@@ -1,0 +1,21 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "args": 
+                [
+                    "--supply", "/home/bhillermann/Documents/Trade Analysis/Supply_20250117_160650.xlsx", 
+                    "--input", "/home/bhillermann/Documents/Trade Analysis/NVCR_Trade-prices-20250117_160858.xlsx",
+                    "--output", "/home/bhillermann/Documents/Trade Analysis/Debug_Trade_Analysis.xlsx"
+                ],
+            "console": "integratedTerminal"
+        }
+    ]
+}
