@@ -163,14 +163,14 @@ hu_df = hu_df.drop(['sbu', 'shu_price', 'species'], axis=1)
 # Make sure all LTs are integers
 hu_df['lt'] = hu_df['lt'].map(int)
 
-choices = ['Corangamite', 'Melbourne Water', 'Port Phillip and Westernport', 
+cmas = ['Corangamite', 'Melbourne Water', 'Port Phillip and Westernport', 
            'Wimmera', 'Glenelg Hopkins', 'Goulburn Broken', 'West Gippsland', 
            'East Gippsland', 'Mallee', 'North Central', 'North East'
            ]
 
 # Clean up all the inconsistancies in CMA names
 def fix_cmas(row):
-    cma = process.extractOne(row['cma'], choices)[0]
+    cma = process.extractOne(row['cma'], cmas)[0]
     return cma
 
 hu_df['cma'] = hu_df.apply(lambda row: fix_cmas(row), axis=1)
@@ -477,11 +477,12 @@ for row in sheet["J4:J8"]:
         cell.number_format = currency_format
 
 
-# Define the CMA Summary pages we have to iterate through
-cmas = ['Corangamite', 'Melbourne Water', 'Wimmera', 'Glenelg Hopkins', 
-           'Goulburn Broken', 'West Gippsland', 'East Gippsland', 'Mallee', 
-           'North Central', 'North East'
-           ]
+# Update the cmas to reflect Melbourne Water before we iterate through 
+# summary pages
+
+print(f'{cmas}\n')
+cmas.remove('Port Phillip and Westernport')
+print(f'{cmas}\n')
 
 # Define which cells on the CMA pages need to be set to currency
 currency_cells = ('B3', 'B4', 'B5', 'B7', 'B8', 'B9', 'B10', 'B12')
