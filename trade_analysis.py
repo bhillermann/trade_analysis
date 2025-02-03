@@ -179,7 +179,7 @@ hu_df = hu_df.replace('Port Phillip and Westernport', 'Melbourne Water')
 # This needs to be cleaned up. Use normal headers and then relable after 
 # calculations
 summary = {'description': [
-                            'Total GHUs traded', 'Total GHUs value',
+                            'Total GHUs traded', 'Total market value',
                             'Average price per GHU',
                             'Median price per GHU', 'Total GHUs without trees',
                             'Total value without trees',
@@ -229,19 +229,16 @@ for k, v in hu_df.groupby('cma'):
     # (Total GHU value - ((Total GHUs - Total GHUs without trees)
     # * Avg price without trees) - Total value without trees)
     # / Total LTs Traded
-    summary_df.loc[10, ['values']] = (
+    summary_df.loc[10, 'values'] = (
         (
-            summary_df.loc[1, ['values']]
+            summary_df.at[1, 'values']
             - (
-                (
-                    summary_df.loc[0, ['values']]
-                    - summary_df.loc[4, ['values']]
-                )
-                * summary_df.loc[6, ['values']]
-            )  
-            - summary_df.loc[5, ['values']]
+                (summary_df.at[0, 'values'] - summary_df.at[4, 'values'])
+                * summary_df.at[6, 'values']
+            )
+            - summary_df.at[5, 'values']
         )
-        / summary_df.loc[9, ['values']]
+        / summary_df.at[9, 'values']
     )
     # Supply of Credits
     summary_df.loc[11, ['values']] = supply_df[k].agg('GHU').sum()
@@ -375,20 +372,46 @@ worksheet.autofit()
 # Overview Summary Dataframe ------------------------------------------------
 sheetname = 'HU Summary'
 # Create high level summary data
-hu_summary = hu_df.groupby('cma', as_index=False).agg(
-    {
-        'ghu': 'sum', 'lt': 'sum', 'price_ex_gst': 'sum', 
-        'ghu_price': ['min', 'max', 'mean', 'median']
-    }
-    )
+hu_summary = hu_df.groupby('cma', as_index=False).agg({
+    'ghu': 'sum',
+    'lt': 'sum',
+    'price_ex_gst': 'sum',
+    'ghu_price': [
+        lambda x: x[hu_df.loc[x.index, 'lt'] == 0].min(), 
+        lambda x: x[hu_df.loc[x.index, 'lt'] == 0].max(), 
+        lambda x: x[hu_df.loc[x.index, 'lt'] == 0].mean(), 
+        lambda x: x[hu_df.loc[x.index, 'lt'] == 0].median()
+    ]
+})
+
+new_hu_summary = pd.DataFrame()
+summary_columns = summaries['Corangamite']['description'].to_list()
+summary_columns.insert(0, 'CMA')
+
+for x in summaries:
+    temp_series = summaries[x]['values']
+    temp_series = pd.concat([pd.Series([x]), temp_series], ignore_index=True)
+    new_hu_summary = pd.concat([new_hu_summary, pd.DataFrame(temp_series)
+        .transpose()], ignore_index=True)
+
+new_hu_summary.columns = summary_columns
+
+new_hu_summary = (new_hu_summary[['Supply of Credits', 'LT Supply']])
+
+print(new_hu_summary)
+
+hu_summary["GHU Weighted Average"] = hu_summary['price_ex_gst']['sum'] / hu_summary['ghu']['sum']
+hu_summary = pd.concat([hu_summary, new_hu_summary], axis=1)
+
+print(hu_summary)
 
 # Write it to Excel 
-hu_summary.to_excel(writer, sheet_name=sheetname, header=False)
+hu_summary.to_excel(writer, sheet_name=sheetname)
 
 # Create some human readable headers
-header = ('Index', 'CMA', 'GHUs', 'LTs', 'Total Value', 'GHU Floor Price', 
+header = ('Index', 'CMA', 'GHUs', 'LTs', 'Total Value', 'GHU Floor Price',
                      'GHU Ceiling Price', 'GHU Mean', 'GHU Median', 
-                     'GHU Weighted Average') 
+                     'GHU Weighted Average', 'Available GHUs', 'Avalable LTs') 
 
 column_settings = [{"header": column} for column in header]
 
@@ -399,7 +422,7 @@ column_settings = [{"header": column} for column in header]
 worksheet = writer.sheets[sheetname]
 
 # Add the Excel table structure. Pandas added the data.
-worksheet.add_table(0, 0, max_row, max_col + 1, 
+worksheet.add_table(0, 0, max_row, max_col, 
                     {
                         'columns': column_settings,
                         'style': 'Table Style Light 11',
@@ -407,7 +430,7 @@ worksheet.add_table(0, 0, max_row, max_col + 1,
                     })
 
 # Set currency format on pricing columns
-worksheet.set_column(max_col - 4, max_col + 1, None, currency_format)
+worksheet.set_column(max_col - 4, max_col - 2, None, currency_format)
 
 # Autofit columns
 worksheet.autofit()
@@ -415,7 +438,7 @@ worksheet.autofit()
 # End Overview Summary data -------------------------------------------------
 
 for cma in summaries:
-        summaries[cma].columns = ['Description', 'Values']
+        summaries[cma].columns = ['Metric', 'Value']
         summaries[cma].to_excel(writer, sheet_name=cma, index=False)
         writer.sheets[cma].autofit()
 
@@ -425,9 +448,9 @@ for cma in summaries:
         worksheet = writer.sheets[cma]
 
         # Create some human readable headers
-        header = ('Metric', 'Value') 
+#        header = ('Metric', 'Value') 
 
-        column_settings = [{"header": column} for column in header]
+#        column_settings = [{"header": column} for column in header]
 
         # Add the Excel table structure. Pandas added the data.
         worksheet.add_table(0, 0, max_row, max_col - 1, 
@@ -455,10 +478,11 @@ currency_format = '$#,##0.00'
 # Iterate over all cells in all sheets and set the font
 for x in workbook.sheetnames:
     sheet = workbook[x]
-    for row in sheet["A:J"]:
+    for row in sheet["A:L"]:
         for cell in row:
             cell.font = default_font
 
+'''
 # Set the weighted average formula on the CMA Summary page
 sheet = workbook['HU Summary']
 
@@ -467,6 +491,7 @@ for row in sheet["J2:J11"]:
     for cell in row:
         cell.value = "=E{row}/C{row}".format(row=cell.row)
         cell.number_format = currency_format
+'''
 
 # Set the currency format on the summary table in SHU Data tab --------------
 sheet = workbook['SHU Data']
@@ -477,12 +502,9 @@ for row in sheet["J4:J8"]:
         cell.number_format = currency_format
 
 
-# Update the cmas to reflect Melbourne Water before we iterate through 
-# summary pages
-
-print(f'{cmas}\n')
+# Update the cmas to remove Port Phillip and Westernport before we iterate  
+# through summary pages
 cmas.remove('Port Phillip and Westernport')
-print(f'{cmas}\n')
 
 # Define which cells on the CMA pages need to be set to currency
 currency_cells = ('B3', 'B4', 'B5', 'B7', 'B8', 'B9', 'B10', 'B12')
