@@ -123,36 +123,41 @@ shu_df = hu_df[pd.notnull(hu_df['species'])]
 # Drop all HU trades outside of the date range
 hu_df = hu_df[((hu_df['date'] >= start_date.date()) & (hu_df['date'] <= end_date.date()))]
 
-# Drop all SHU trades outside of a three year period from end date
-shu_df = shu_df[((shu_df['date'] >= end_date.date() - timedelta(days=1095)) & 
-                 (shu_df['date'] <= end_date.date()))]
-
 # Drop the SHU columns we don't need
 shu_df = shu_df.drop(['cma', 'sbv', 'ghu', 'ghu_price'], axis=1)
 
-# Create Summary SHU Data
-shu_summary = {'Description': [
-                                'Number of SHU trades', 
-                                'Total SHUs traded' ,
-                                'Total Value of SHU trades', 
-                                'Average Price per SHU',
-                                'SHU Floor Price',
-                                'SHU Ceiling Price',
-                                'SHU median price'
-                            ], 
-                           'Values': [
-                                (shu_df.groupby(['date', 'shu_price'])
-                                 .sum('sbu')['sbu'].count()),
-                                shu_df['sbu'].sum(), 
-                                shu_df['price_ex_gst'].sum(), 
-                                (shu_df['price_ex_gst'].sum()
-                                 / shu_df['sbu'].sum()), 
-                                shu_df['shu_price'].min(), 
-                                shu_df['shu_price'].max(), 
-                                np.median(shu_df['shu_price'].unique())
-                            ]}
+# Set 1 year and 3 year date ranges
+one_year = end_date.date() - timedelta(days=365)
+three_year = end_date.date() - timedelta(days=1095)
 
-shu_summary_df = pd.DataFrame(shu_summary)
+# Drop all SHU trades outside of a one year period from end date
+shu_df_1y = shu_df[((shu_df['date'] >= one_year) &
+                 (shu_df['date'] <= end_date.date()))]
+
+# Drop all SHU trades outside of a one year period from end date
+shu_df_3y = shu_df[((shu_df['date'] >= three_year) &
+                 (shu_df['date'] <= end_date.date()))]
+
+# Function to generate SHU summary from a filtered DataFrame
+def create_shu_summary(filtered_df):
+    total_sbu = filtered_df['sbu'].sum()
+    return {
+        'Number of SHU trades': filtered_df.groupby(['date', 'shu_price']).sum(numeric_only=True)['sbu'].count(),
+        'Total SHUs traded': total_sbu,
+        'Total Value of SHU trades': filtered_df['price_ex_gst'].sum(),
+        'Average Price per SHU': filtered_df['price_ex_gst'].sum() / total_sbu if total_sbu > 0 else np.nan,
+        'SHU Floor Price': filtered_df['shu_price'].min(),
+        'SHU Ceiling Price': filtered_df['shu_price'].max(),
+        'SHU median price': np.median(filtered_df['shu_price'].unique()) if not filtered_df.empty else np.nan
+    }
+
+# Create summaries
+shu_summary_1y = create_shu_summary(shu_df_1y)
+shu_summary_3y = create_shu_summary(shu_df_3y)
+
+# Optional: convert to DataFrames for nicer display or export
+shu_summary_df_1y = pd.DataFrame(list(shu_summary_1y.items()), columns=['Description', 'Value'])
+shu_summary_df_3y = pd.DataFrame(list(shu_summary_3y.items()), columns=['Description', 'Value'])
 
 # Drop the SHU trades so we only have GHU trades
 hu_df = hu_df[pd.isnull(hu_df['species'])]
@@ -348,16 +353,32 @@ worksheet.add_table(0, 0, max_row, max_col - 1,
 worksheet.set_column(max_col-2, max_col - 1, None, currency_format)
 worksheet.set_column(3, 3, None, currency_format)
 
-# Write the SHU Summary data
-shu_summary_df.to_excel(writer, sheet_name=sheetname, 
+# Get the dimensions of the 3 year SHU Summary dataframe.
+(max_row, max_col) = shu_summary_df_3y.shape
+
+# Write the 3 year SHU Summary data
+shu_summary_df_3y.to_excel(writer, sheet_name=sheetname, 
                         startrow=1, startcol=8, index=False, header=False)
 
-# Get the dimensions of the dataframe.
-(max_row, max_col) = shu_summary_df.shape
+# Write the 1 year SHU Summary data
+shu_summary_df_1y.to_excel(writer, sheet_name=sheetname, 
+                        startrow=max_row + 3, startcol=8, index=False, header=False)
 
+# Add the headings for 1 year and 3 year SHU summaries
+
+worksheet.write(0, 8, '3 Year SHU Summary')
+worksheet.write(max_row + 2, 8, '1 Year SHU Summary')
 
 # Add the Excel table structure. Pandas added the data.
-worksheet.add_table(1, 8, max_row, max_col +8 - 1, 
+worksheet.add_table(1, 8, max_row, max_col + 8 - 1, 
+                    {
+                        'style': 'Table Style Light 18',
+                        'autofilter': False,
+                        'header_row': False,
+                        'first_column': True
+                    })
+
+worksheet.add_table(max_row + 3, 8, 2 * max_row + 2, max_col + 8 - 1, 
                     {
                         'style': 'Table Style Light 18',
                         'autofilter': False,
@@ -482,22 +503,15 @@ for x in workbook.sheetnames:
         for cell in row:
             cell.font = default_font
 
-'''
-# Set the weighted average formula on the CMA Summary page
-sheet = workbook['HU Summary']
-
-# Define which cells need the formula
-for row in sheet["J2:J11"]:
-    for cell in row:
-        cell.value = "=E{row}/C{row}".format(row=cell.row)
-        cell.number_format = currency_format
-'''
-
 # Set the currency format on the summary table in SHU Data tab --------------
 sheet = workbook['SHU Data']
 
 # Define which cells in the summary table need to be set to currency
 for row in sheet["J4:J8"]:
+    for cell in row:
+        cell.number_format = currency_format
+
+for row in sheet["J12:J16"]:
     for cell in row:
         cell.number_format = currency_format
 
