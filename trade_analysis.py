@@ -165,6 +165,8 @@ hu_df = hu_df[pd.isnull(hu_df['species'])]
 # Drop the HU columns we don't need
 hu_df = hu_df.drop(['sbu', 'shu_price', 'species'], axis=1)
 
+# Replace all NaN values with 0
+hu_df['lt'] = hu_df['lt'].fillna(0)
 # Make sure all LTs are integers
 hu_df['lt'] = hu_df['lt'].map(int)
 
