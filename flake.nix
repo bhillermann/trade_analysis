@@ -19,6 +19,7 @@
 	      pandas
 	      openpyxl
           beautifulsoup4
+          thefuzz
 	    ]);
 
 	  in 
