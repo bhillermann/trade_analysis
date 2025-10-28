@@ -29,7 +29,7 @@ def get_supply(output, csv=False):
     for x in cmas:
         print('Scraping supply data for:', x, '...\n')
         driver.get("https://nvcr.delwp.vic.gov.au/Search/GHU")
-        time.sleep(4)
+        time.sleep(5)
         
         ghu_element = driver.find_element(By.XPATH, 
                 '//*[@id="GeneralGuidelineSearch"]/div[2]/div[1]/div/input')
