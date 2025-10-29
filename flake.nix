@@ -26,35 +26,41 @@
 	    xlsxwriter
 	  ]);
 
+	  envDeps = with pkgs; [
+		pythonEnv
+		firefox
+		geckodriver
+	  ];
+
 	in 
 
-	  f { inherit pkgs pythonEnv system; }
+	  f { inherit pkgs envDeps system; }
     );
 
   in {
-    packages = forAllSystems ( { pkgs, pythonEnv, ... }: { 
-	default = pkgs.stdenv.mkDerivation {
-	  pname = "nvcr trade-analysis";
-	  version = "0.1";
+    packages = forAllSystems ({ pkgs, envDeps, ... }: { 
+		default = pkgs.stdenv.mkDerivation {
+			pname = "nvcr trade-analysis";
+			version = "0.1";
 
-	  src = ./.;
+			src = ./.;
 
-	  buildInputs = [ pythonEnv pkgs.geckodriver pkgs.firefox];
-	  dontBuild = true;
+			buildInputs = [ envDeps];
+			dontBuild = true;
 
-	  installPhase = ''
-	    mkdir -p $out/bin
-	    cp $src/db-nvrmap.py $out/bin/db-nvrmap
-	    cp $src/db-ensym.py $out/bin/db-ensym
-	    chmod +x $out/bin/db-nvrmap
-	    chmod +x $out/bin/db-ensym
-	  '';
-	};
-    });
+			installPhase = ''
+				mkdir -p $out/bin
+				cp $src/*.py $out/bin/
+				mv $out/bin/trade_analysis.py $out/bin/trade_analysis
+				chmod +x $out/bin/*.py
+				chmod +x $out/bin/trade_analysis
+			'';
+			};
+		});
 
-    devShells = forAllSystems ({ pkgs, pythonEnv, ... }: {
+    devShells = forAllSystems ({ pkgs, envDeps, ... }: {
 	default = pkgs.mkShell {
-	  buildInputs = [ pythonEnv pkgs.geckodriver pkgs.firefox ];
+	  buildInputs = [ envDeps ];
 	};
     });
   };
