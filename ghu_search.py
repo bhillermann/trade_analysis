@@ -12,7 +12,7 @@ import argparse
 from io import StringIO
 
 
-def get_supply(output, csv=False):
+def get_supply():
     opts = webdriver.FirefoxOptions()
     opts.add_argument("--headless")
     driver = webdriver.Firefox(options = opts)
@@ -22,9 +22,6 @@ def get_supply(output, csv=False):
             'East Gippsland', 'Mallee', 'North Central', 'North East']
 
     all_supply = dict()
-    big_df = pd.DataFrame()
-
-    supply_xlsx = output
 
     for x in cmas:
         print('Scraping supply data for:', x, '...\n')
@@ -60,38 +57,34 @@ def get_supply(output, csv=False):
         all_tables = pd.read_html(StringIO(str(div)))
         supply_table = all_tables[4]
         all_supply[x] = copy.deepcopy(all_tables[4])
-        big_df = pd.concat([big_df, supply_table], ignore_index=True)
 
     driver.quit()
 
-    big_df['Date'] = datetime.now().strftime("%Y-%m-%d")
-
-    with pd.ExcelWriter(supply_xlsx.format(datetime.now().\
-                                        strftime("%Y%m%d_%H%M%S")), 
-                        engine='xlsxwriter', \
-                        engine_kwargs={'options':{'strings_to_formulas': False}})\
-                        as writer:
-        for cma in all_supply:
-            all_supply[cma].to_excel(writer, sheet_name=cma)
-
-    if csv:
-        supply_csv = '~/Documents/Trade Analysis/Supply_{}.csv'
-        big_df.to_csv(supply_csv.format(datetime.now().\
-                                            strftime("%Y%m%d_%H%M%S")))
+    return all_supply
 
 
 if __name__ == "__main__":
 
     # Call argparse and define the arguments
-    parser = argparse.ArgumentParser(description='Scrape the NVCR for supply' 
-                                    'data.')
+    parser = argparse.ArgumentParser(description='Scrape the NVCR for supply data.')
     parser.add_argument("-o", "--output", default='Supply_{}.xlsx',
                         help='The name of the file you would like to write the '
-                            'supply data to. Default is "Supply.xlsx" in '
+                            'supply data to. Default is "Supply_{timestamp}.xlsx" in '
                             'the current directory')
 
     args = parser.parse_args()
 
-    get_supply(args.output, True)
+    # Get supply data as dict of DataFrames
+    all_supply = get_supply()
+
+    # Write to Excel file
+    supply_xlsx = args.output.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
+    with pd.ExcelWriter(supply_xlsx,
+                        engine='xlsxwriter',
+                        engine_kwargs={'options':{'strings_to_formulas': False}}) as writer:
+        for cma in all_supply:
+            all_supply[cma].to_excel(writer, sheet_name=cma)
+
+    print(f'Supply data saved to: {supply_xlsx}')
 
 
