@@ -7,9 +7,128 @@ import copy
 from datetime import datetime, timedelta
 import argparse
 from ghu_search import get_supply
-from download_nvcr import get_trade_data
 from openpyxl import load_workbook
 from openpyxl.styles import Font
+import tempfile
+import shutil
+import time
+import logging
+import sys
+from pathlib import Path
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.by import By
+from bs4 import BeautifulSoup
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+NVCR_URL = (
+    "https://www.environment.vic.gov.au/"
+    "native-vegetation/native-vegetation-removal-regulations"
+)
+URL_TEXT = "Traded credits information"
+
+
+def wait_for_download(directory: str, timeout: int = 30) -> str:
+    """Wait for .xlsx file to appear in directory after Selenium download."""
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        files = list(Path(directory).glob("*.xlsx"))
+        if files:
+            return str(files[0])
+        time.sleep(0.5)
+    raise TimeoutError(f"Download did not complete within {timeout} seconds")
+
+
+def get_trade_data() -> pd.ExcelFile:
+    """Download NVCR trade data using Selenium with temporary file storage."""
+    logging.info("Starting get_trade_data()")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Configure Firefox to download to temp directory
+        options = Options()
+        options.add_argument("--headless")
+        options.set_preference("browser.download.folderList", 2)
+        options.set_preference("browser.download.dir", tmpdir)
+        options.set_preference("browser.download.useDownloadDir", True)
+        options.set_preference("browser.helperApps.neverAsk.saveToDisk",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+        driver = webdriver.Firefox(options=options)
+        try:
+            driver.get(NVCR_URL)
+            logging.info("Page loaded successfully.")
+
+            html = driver.page_source
+            soup = BeautifulSoup(html, "lxml")
+            download_link = None
+
+            for link in soup.find_all("a", href=True):
+                if URL_TEXT in link.get_text(strip=True):
+                    download_link = link["href"]
+                    break
+
+            if not download_link:
+                raise ValueError("Download link for traded credits not found.")
+
+            logging.info(f"Download link found: {download_link}")
+            driver.get(download_link)
+
+            # Wait for download to complete
+            downloaded_file = wait_for_download(tmpdir)
+            logging.info(f"File downloaded to: {downloaded_file}")
+
+            # Load into memory before temp directory cleanup
+            excel_file = pd.ExcelFile(downloaded_file)
+            return excel_file
+
+        finally:
+            driver.quit()
+    # tmpdir automatically deleted here
+
+
+def save_nvcr_file(output_path: str) -> None:
+    """Download NVCR trade data and save to specified path without analysis."""
+    logging.info(f"Downloading NVCR trade data to: {output_path}")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        options = Options()
+        options.add_argument("--headless")
+        options.set_preference("browser.download.folderList", 2)
+        options.set_preference("browser.download.dir", tmpdir)
+        options.set_preference("browser.download.useDownloadDir", True)
+        options.set_preference("browser.helperApps.neverAsk.saveToDisk",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+        driver = webdriver.Firefox(options=options)
+        try:
+            driver.get(NVCR_URL)
+            html = driver.page_source
+            soup = BeautifulSoup(html, "lxml")
+
+            download_link = None
+            for link in soup.find_all("a", href=True):
+                if "Traded credits information" in link.get_text(strip=True):
+                    download_link = link["href"]
+                    break
+
+            if not download_link:
+                raise ValueError("Download link not found.")
+
+            driver.get(download_link)
+            downloaded_file = wait_for_download(tmpdir)
+
+            # Copy to user-specified location
+            shutil.copy(downloaded_file, output_path)
+            logging.info(f"NVCR trade data saved to: {output_path}")
+
+        finally:
+            driver.quit()
 
 # Call argparse and define the arguments
 parser = argparse.ArgumentParser(description='Process trade prices and supply'
@@ -35,31 +154,50 @@ parser.add_argument("-e", "--end",
                     help='The date you wish to do the analysis to. '
                         'Format is YYYY-MM-DD'
                         'Default is the end of the previous month')
+parser.add_argument("--download-nvcr",
+                    help='Download NVCR trade data file and save to specified '
+                         'location without running analysis. Exits after download.')
 
 args = parser.parse_args()
+
+# Handle download-only mode first
+if args.download_nvcr:
+    print('Downloading NVCR trade data...')
+    save_nvcr_file(args.download_nvcr)
+    print(f'NVCR trade data saved as: {args.download_nvcr}')
+    sys.exit(0)
 
 # Import the Traded Credits data with pandas
 # Define the Excel file to import
 output_file = args.output
-download_trade_data = False
 
-if args.supply == None:
-    print('Downloading supply data...\n\n')
-    supply_data = 'Supply_{}.xlsx'.format(datetime.now().
-                                          strftime("%Y%m%d_%H%M%S"))
-    get_supply(supply_data, False)
-    print('Supply data saved as: ', supply_data)
-else:
-    supply_data = args.supply
+# Get supply data
+try:
+    if args.supply:
+        print(f'Loading supply data from: {args.supply}')
+        supply_df = pd.read_excel(args.supply, sheet_name=None)
+    else:
+        print('Downloading supply data...')
+        supply_df = get_supply()
+        print('Supply data downloaded.')
+except Exception as e:
+    print(f"Failed to get supply data: {e}")
+    print("You can provide an existing supply file with --supply")
+    sys.exit(1)
 
-if args.input == None:
-    print('Downloading NVCR trade data...')
-    trade_data = 'NVCR_Trade-prices-{}.xlsx'.format(datetime.now().
-                                                    strftime("%Y%m%d_%H%M%S"))
-    get_trade_data(trade_data)
-    print('Trade data saved as: ', trade_data)
-else:
-    trade_data = args.input
+# Get trade data
+try:
+    if args.input:
+        print(f'Loading trade data from: {args.input}')
+        trade_df = pd.ExcelFile(args.input)
+    else:
+        print('Downloading NVCR trade data...')
+        trade_df = get_trade_data()
+        print('Trade data downloaded.')
+except Exception as e:
+    print(f"Failed to get trade data: {e}")
+    print("You can provide an existing trade file with --input")
+    sys.exit(1)
 
 
 # Define the property IDs of the Water Authorities
@@ -68,21 +206,10 @@ wa['Corangamite'] = ['BBA-2252']
 wa['Glenelg Hopkins'] = ['TFN-C0228 ']
 wa['Melbourne Water'] = [
      'BBA-0277', 'BBA-0670', 'BBA-0677', 'BBA-0678']
-wa['West Gippsland'] = ['BBA-3049', 'BBA-2845', 'BBA-2839', 'BBA-2790', 
+wa['West Gippsland'] = ['BBA-3049', 'BBA-2845', 'BBA-2839', 'BBA-2790',
                         'BBA-2789', 'BBA-2751', 'BBA-2766', 'BBA-2623']
 
-# Open the Excel file. Quit if not FileNotFoundError
-try:
-    trade_df = pd.ExcelFile(trade_data)
-except FileNotFoundError as e:
-    print("Excel file not found: ", e)
-    exit()
-
-try:
-    supply_df = pd.read_excel(supply_data, sheet_name=None)
-except FileNotFoundError as e:
-    print("Excel file not found: ", e)
-    exit()
+# trade_df and supply_df are already loaded from above
 
 # Grab the HU tab
 hu_df = trade_df.parse('Trade Prices by HU')
