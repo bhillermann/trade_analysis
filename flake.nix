@@ -42,7 +42,7 @@
           dontBuild = true;
 
           installPhase =
-            "	mkdir -p $out/bin\n	cp $src/*.py $out/bin/\n	mv $out/bin/trade_analysis.py $out/bin/trade-analysis\n	chmod +x $out/bin/*.py\n	chmod +x $out/bin/trade_analysis\n";
+            "	mkdir -p $out/bin\n	cp $src/*.py $out/bin/\n	mv $out/bin/trade_analysis.py $out/bin/trade-analysis\n	chmod +x $out/bin/*\n";
         };
       });
 
