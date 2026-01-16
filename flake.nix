@@ -24,7 +24,6 @@
                 requests
                 lxml
                 xlsxwriter
-                pylance
               ]);
 
             envDeps = with pkgs; [ pythonEnv firefox geckodriver ];
