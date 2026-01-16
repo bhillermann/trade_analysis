@@ -38,7 +38,7 @@
 
           src = ./.;
 
-          buildInputs = [ envDeps ];
+          buildInputs = envDeps;
           dontBuild = true;
 
           installPhase =
