@@ -2,7 +2,6 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font
 
 workbook = load_workbook(filename='/home/bhillermann/Documents/Trade Analysis/Latest_trade.xlsx')
-sheet = workbook.active
 
 # Set the font format we want to use
 default_font = Font(name='Rubik Light', size=10)

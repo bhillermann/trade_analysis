@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from typing import Any
 import pandas as pd
 import numpy as np
 from thefuzz import process
@@ -18,7 +19,8 @@ from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
+import xlsxwriter
 
 # Configure logging
 logging.basicConfig(
@@ -98,8 +100,10 @@ def _download_nvcr_file(tmpdir: str) -> str:
         # Find and click the download link
         link_found = False
         for link in soup.find_all("a", href=True):
+            if not isinstance(link, Tag):
+                continue
             if URL_TEXT in link.get_text(strip=True):
-                download_url = link["href"]
+                download_url = str(link.get("href"))
                 logging.info(f"Download link found: {download_url}")
 
                 # Click the link element (NOT driver.get - that blocks!)
@@ -280,7 +284,7 @@ shu_df_3y = shu_df[((shu_df['date'] >= three_year) &
                  (shu_df['date'] <= end_date.date()))]
 
 # Function to generate SHU summary from a filtered DataFrame
-def create_shu_summary(filtered_df):
+def create_shu_summary(filtered_df: pd.DataFrame) -> dict[str, Any]:
     total_sbu = filtered_df['sbu'].sum()
     return {
         'Number of SHU trades': filtered_df.groupby(['date', 'shu_price']).sum(numeric_only=True)['sbu'].count(),
@@ -317,9 +321,11 @@ cmas = ['Corangamite', 'Melbourne Water', 'Port Phillip and Westernport',
            ]
 
 # Clean up all the inconsistancies in CMA names
-def fix_cmas(row):
-    cma = process.extractOne(row['cma'], cmas)[0]
-    return cma
+def fix_cmas(row: pd.Series[Any]) -> str:
+    result = process.extractOne(row['cma'], cmas)  # type: ignore[attr-defined]
+    if result is None:
+        return str(row['cma'])
+    return str(result[0])
 
 hu_df['cma'] = hu_df.apply(lambda row: fix_cmas(row), axis=1)
 hu_df = hu_df.replace('Port Phillip and Westernport', 'Melbourne Water')
@@ -343,92 +349,92 @@ summary = {'description': [
 
 summary_df = pd.DataFrame(data=summary)
 
-summaries = dict()
+summaries: dict[str, pd.DataFrame] = {}
 
 print('Calculating per CMA data-------------------------------------------\n')
 for k, v in hu_df.groupby('cma'):
-    print(f'Crunching data for {k}...\n')
+    cma_key = str(k)
+    print(f'Crunching data for {cma_key}...\n')
     # Total GHUs traded
-    summary_df.loc[0, ['values']] = v['ghu'].sum()
+    summary_df.loc[0, 'values'] = v['ghu'].sum()
     # Total GHUs value
-    summary_df.loc[1, ['values']] = v['price_ex_gst'].sum()
+    summary_df.loc[1, 'values'] = v['price_ex_gst'].sum()
     # Average price per GHU
-    summary_df.loc[2, ['values']] = v['price_ex_gst'].sum() / v['ghu'].sum()
+    summary_df.loc[2, 'values'] = v['price_ex_gst'].sum() / v['ghu'].sum()
     # Median price per GHU
-    summary_df.loc[3, ['values']] = v['ghu_price'].median()
+    summary_df.loc[3, 'values'] = v['ghu_price'].median()
     # Total GHUs without trees
-    summary_df.loc[4, ['values']] = v.loc[v['lt'] == 0].agg('ghu').sum()
+    summary_df.loc[4, 'values'] = v.loc[v['lt'] == 0].agg('ghu').sum()
     # Total value without trees
-    summary_df.loc[5, ['values']] = v.loc[v['lt'] == 0].agg(
+    summary_df.loc[5, 'values'] = v.loc[v['lt'] == 0].agg(
         'price_ex_gst').sum()
     # Average price without trees
-    summary_df.loc[6, ['values']] = (
-            v.loc[v['lt'] == 0].agg('price_ex_gst').sum() 
+    summary_df.loc[6, 'values'] = (
+            v.loc[v['lt'] == 0].agg('price_ex_gst').sum()
             / v.loc[v['lt'] == 0].agg('ghu').sum()
         )
     # Median price without trees
-    summary_df.loc[7, ['values']] = v.loc[v['lt'] == 0].agg(
+    summary_df.loc[7, 'values'] = v.loc[v['lt'] == 0].agg(
          'ghu_price').median()
     # Floor price
-    summary_df.loc[8, ['values']] = v['ghu_price'].min()
+    summary_df.loc[8, 'values'] = v['ghu_price'].min()
     # Total LTs traded
-    summary_df.loc[9, ['values']] = v['lt'].sum()
+    summary_df.loc[9, 'values'] = v['lt'].sum()
     # Calculate the theoretical value of trees
     # (Total GHU value - ((Total GHUs - Total GHUs without trees)
     # * Avg price without trees) - Total value without trees)
     # / Total LTs Traded
+    # Values are always numeric in this context, but pandas types them as Scalar
+    val_1 = float(summary_df.at[1, 'values'])  # type: ignore[arg-type]
+    val_0 = float(summary_df.at[0, 'values'])  # type: ignore[arg-type]
+    val_4 = float(summary_df.at[4, 'values'])  # type: ignore[arg-type]
+    val_5 = float(summary_df.at[5, 'values'])  # type: ignore[arg-type]
+    val_6 = float(summary_df.at[6, 'values'])  # type: ignore[arg-type]
+    val_9 = float(summary_df.at[9, 'values'])  # type: ignore[arg-type]
     summary_df.loc[10, 'values'] = (
-        (
-            summary_df.at[1, 'values']
-            - (
-                (summary_df.at[0, 'values'] - summary_df.at[4, 'values'])
-                * summary_df.at[6, 'values']
-            )
-            - summary_df.at[5, 'values']
-        )
-        / summary_df.at[9, 'values']
+        (val_1 - ((val_0 - val_4) * val_6) - val_5) / val_9
     )
     # Supply of Credits
-    summary_df.loc[11, ['values']] = supply_df[k].agg('GHU').sum()
+    summary_df.loc[11, 'values'] = supply_df[cma_key].agg('GHU').sum()
     # Years of Supply
-    summary_df.loc[12, ['values']] = (summary_df.loc[11, ['values']]
-        / summary_df.loc[0, ['values']])
+    val_11 = float(summary_df.loc[11, 'values'])  # type: ignore[arg-type]
+    summary_df.loc[12, 'values'] = val_11 / val_0
     # LT Supply
-    summary_df.loc[13, ['values']] = supply_df[k].agg('LT').sum()
+    summary_df.loc[13, 'values'] = supply_df[cma_key].agg('LT').sum()
     # Calculate the number of credits owned by water authorities
-    wa_credits = 0
-    try :
-         for x in wa[k]:
-            wa_credits = (wa_credits 
-                          + supply_df[k].loc[supply_df[k]['Credit Site ID'] 
+    wa_credits = 0.0
+    try:
+        for x in wa[cma_key]:
+            wa_credits = (wa_credits
+                          + supply_df[cma_key].loc[supply_df[cma_key]['Credit Site ID']
                                == x].agg('GHU').sum())
-    except:
-         print(f"No Water Authority credits for {k}.\n")
+    except KeyError:
+        print(f"No Water Authority credits for {cma_key}.\n")
     # Water Authority Supply (WA)
-    summary_df.loc[14, ['values']] = wa_credits
+    summary_df.loc[14, 'values'] = wa_credits
     # Years of Supply without WA
-    summary_df.loc[15, ['values']] = ((summary_df.loc[11, ['values']] 
-                                      - wa_credits)
-                                      / summary_df.loc[0, ['values']])
+    summary_df.loc[15, 'values'] = (val_11 - wa_credits) / val_0
 
 
 
-    summaries[k] = copy.deepcopy(summary_df)
+    summaries[cma_key] = copy.deepcopy(summary_df)
 
 
 # Writing it all to Excel
 
 print('Creating Excel Spreadsheet...\n\n')
 
-writer = pd.ExcelWriter(output_file, 
+writer = pd.ExcelWriter(output_file,
                     engine='xlsxwriter',
                     engine_kwargs={'options':{'strings_to_formulas': False}})
 
-workbook = writer.book
+xlsx_workbook_raw = writer.book
+assert xlsx_workbook_raw is not None, "ExcelWriter workbook should not be None with xlsxwriter engine"
+xlsx_workbook: xlsxwriter.Workbook = xlsx_workbook_raw  # type: ignore[assignment]
 
 # Define the different formats
 
-currency_format = workbook.add_format(
+currency_format = xlsx_workbook.add_format(
     {
         'num_format': '$#,##0.00'
     }
@@ -612,9 +618,8 @@ for cma in summaries:
         worksheet = writer.sheets[cma]
 
         # Create some human readable headers
-#        header = ('Metric', 'Value') 
-
-#        column_settings = [{"header": column} for column in header]
+        header = ('Metric', 'Value')
+        column_settings = [{"header": column} for column in header]
 
         # Add the Excel table structure. Pandas added the data.
         worksheet.add_table(0, 0, max_row, max_col - 1, 

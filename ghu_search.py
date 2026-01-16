@@ -12,7 +12,7 @@ import argparse
 from io import StringIO
 
 
-def get_supply():
+def get_supply() -> dict[str, pd.DataFrame]:
     opts = webdriver.FirefoxOptions()
     opts.add_argument("--headless")
     driver = webdriver.Firefox(options = opts)
@@ -21,7 +21,7 @@ def get_supply():
             'Glenelg Hopkins', 'Goulburn Broken', 'West Gippsland', \
             'East Gippsland', 'Mallee', 'North Central', 'North East']
 
-    all_supply = dict()
+    all_supply: dict[str, pd.DataFrame] = {}
 
     for x in cmas:
         print('Scraping supply data for:', x, '...\n')
@@ -55,7 +55,6 @@ def get_supply():
         soup = BeautifulSoup(html, 'html.parser')
         div = soup.find_all("table", {"class":"table"})
         all_tables = pd.read_html(StringIO(str(div)))
-        supply_table = all_tables[4]
         all_supply[x] = copy.deepcopy(all_tables[4])
 
     driver.quit()

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from typing import Any
+
 import pandas as pd
 from thefuzz import process
 from datetime import datetime
@@ -68,9 +70,11 @@ choices = ['Corangamite', 'Port Phillip and Westernport', 'Melbourne Water',
            'East Gippsland', 'Mallee', 'North Central', 'North East']
 
 # Clean up all the inconsistancies in CMA names
-def fix_cmas(row):
-    cma = process.extractOne(row['cma'], choices)[0]
-    return cma
+def fix_cmas(row: pd.Series[Any]) -> str:
+    result = process.extractOne(row['cma'], choices)  # type: ignore[attr-defined]
+    if result is None:
+        return str(row['cma'])
+    return str(result[0])
 
 hu_df['cma'] = hu_df.apply(lambda row: fix_cmas(row), axis=1)
 
