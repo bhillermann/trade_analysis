@@ -12,6 +12,13 @@ This project uses Nix flakes for dependency management. The development environm
 - Python 3 with packages: numpy, pandas, openpyxl, beautifulsoup4, selenium, thefuzz, requests, lxml, xlsxwriter
 - Firefox and geckodriver for web scraping
 
+## Coding Style
+- Adhere to DRY principals. Reuse functions as much as possible. 
+- For new code, follow functional programming principals. 
+- Use type hints to meed pyland standard strictness.
+- Perform regular commits with human readable commit messages.
+- If a new feature is being added, or a major refactor, create a new branch. 
+
 ### Commands
 
 **Enter development shell:**
