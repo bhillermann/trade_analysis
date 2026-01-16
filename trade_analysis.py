@@ -232,10 +232,13 @@ wa['West Gippsland'] = ['BBA-3049', 'BBA-2845', 'BBA-2839', 'BBA-2790',
 # Grab the HU tab
 hu_df = trade_df.parse('Trade Prices by HU')
 
+# Keep only the first 12 columns (the rest are empty unnamed columns)
+hu_df = hu_df.iloc[:, :12]
+
 # Rename the columns to something usable
 hu_df = hu_df.set_axis([
-     'date', 'cma', 'sbv', 'ghu', 'lt', 'sbu', 'ghu_price', 'shu_price', 
-     'species', 'price_in_gst', 'price_ex_gst', 'unnamed'], 
+     'date', 'cma', 'sbv', 'ghu', 'lt', 'sbu', 'ghu_price', 'shu_price',
+     'species', 'price_in_gst', 'price_ex_gst', 'unnamed'],
      axis=1
      )
 
@@ -261,6 +264,13 @@ hu_df['date']=hu_df['date'].dt.date
 
 # Drop the last column because it's not needed
 hu_df = hu_df.drop(['unnamed'], axis=1)
+
+# Convert numeric columns to proper types (handle string data from Excel)
+hu_df['ghu'] = pd.to_numeric(hu_df['ghu'], errors='coerce').fillna(0)
+hu_df['ghu_price'] = pd.to_numeric(hu_df['ghu_price'], errors='coerce').fillna(0)
+hu_df['sbu'] = pd.to_numeric(hu_df['sbu'], errors='coerce').fillna(0)
+hu_df['shu_price'] = pd.to_numeric(hu_df['shu_price'], errors='coerce').fillna(0)
+hu_df['price_ex_gst'] = pd.to_numeric(hu_df['price_ex_gst'], errors='coerce').fillna(0)
 
 # Grab the SHUs from the HU dataframe
 shu_df = hu_df[pd.notnull(hu_df['species'])]
@@ -321,7 +331,7 @@ cmas = ['Corangamite', 'Melbourne Water', 'Port Phillip and Westernport',
            ]
 
 # Clean up all the inconsistancies in CMA names
-def fix_cmas(row: pd.Series[Any]) -> str:
+def fix_cmas(row: pd.Series) -> str:
     result = process.extractOne(row['cma'], cmas)  # type: ignore[attr-defined]
     if result is None:
         return str(row['cma'])
