@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 import time
@@ -16,6 +18,7 @@ def get_supply() -> dict[str, pd.DataFrame]:
     opts = webdriver.FirefoxOptions()
     opts.add_argument("--headless")
     driver = webdriver.Firefox(options = opts)
+    wait = WebDriverWait(driver, timeout=10)
 
     cmas = ['Corangamite', 'Melbourne Water', 'Wimmera', \
             'Glenelg Hopkins', 'Goulburn Broken', 'West Gippsland', \
@@ -26,7 +29,9 @@ def get_supply() -> dict[str, pd.DataFrame]:
     for x in cmas:
         print('Scraping supply data for:', x, '...\n')
         driver.get("https://nvcr.delwp.vic.gov.au/Search/GHU")
-        time.sleep(5)
+        
+        wait.until(EC.element_to_be_clickable((By.XPATH, 
+                '//*[@id="GeneralGuidelineSearch"]/div[2]/div[1]/div/input')))
         
         ghu_element = driver.find_element(By.XPATH, 
                 '//*[@id="GeneralGuidelineSearch"]/div[2]/div[1]/div/input')
@@ -49,7 +54,8 @@ def get_supply() -> dict[str, pd.DataFrame]:
 
         search_button.click()
 
-        time.sleep(7)
+        wait.until(EC.element_to_be_clickable((By.XPATH,
+                '/html/body/div[3]/div[1]/div[3]/div[7]/div[3]/label')))
 
         html = driver.page_source
         soup = BeautifulSoup(html, 'html.parser')
