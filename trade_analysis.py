@@ -34,15 +34,90 @@ NVCR_URL = (
 URL_TEXT = "Traded credits information"
 
 
-def wait_for_download(directory: str, timeout: int = 30) -> str:
+def wait_for_download(directory: str, timeout: int = 120) -> str:
     """Wait for .xlsx file to appear in directory after Selenium download."""
     start_time = time.time()
+    logging.info(f"Waiting for download in: {directory}")
+
+    last_part_file = None
     while time.time() - start_time < timeout:
-        files = list(Path(directory).glob("*.xlsx"))
-        if files:
-            return str(files[0])
+        # Check for complete downloads
+        xlsx_files = list(Path(directory).glob("*.xlsx"))
+        if xlsx_files:
+            file_path = str(xlsx_files[0])
+            # Verify file is stable (size not changing)
+            initial_size = Path(file_path).stat().st_size
+            time.sleep(1)
+            final_size = Path(file_path).stat().st_size
+            if initial_size == final_size and final_size > 0:
+                logging.info(f"Download complete: {file_path}")
+                return file_path
+
+        # Check for in-progress downloads
+        part_files = list(Path(directory).glob("*.part"))
+        if part_files:
+            current_part = str(part_files[0])
+            if current_part != last_part_file:
+                logging.info(f"Download in progress: {current_part}")
+                last_part_file = current_part
+
         time.sleep(0.5)
+
+    # Timeout - log directory contents for debugging
+    all_files = list(Path(directory).iterdir())
+    logging.error(f"Download timeout. Directory contents: {[f.name for f in all_files]}")
     raise TimeoutError(f"Download did not complete within {timeout} seconds")
+
+
+def _download_nvcr_file(tmpdir: str) -> str:
+    """
+    Internal helper to download NVCR trade data file using Selenium.
+    Returns path to downloaded file in tmpdir.
+    """
+    options = Options()
+    options.add_argument("--headless")
+    options.set_preference("browser.download.folderList", 2)
+    options.set_preference("browser.download.dir", tmpdir)
+    options.set_preference("browser.download.useDownloadDir", True)
+    options.set_preference("browser.helperApps.neverAsk.saveToDisk",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    driver = webdriver.Firefox(options=options)
+    driver.set_page_load_timeout(60)
+
+    try:
+        # Load the NVCR page
+        driver.get(NVCR_URL)
+        time.sleep(5)  # Wait for page to fully render
+        logging.info("Page loaded, searching for download link...")
+
+        # Parse HTML to find download link
+        html = driver.page_source
+        soup = BeautifulSoup(html, "lxml")
+
+        # Find and click the download link
+        link_found = False
+        for link in soup.find_all("a", href=True):
+            if URL_TEXT in link.get_text(strip=True):
+                download_url = link["href"]
+                logging.info(f"Download link found: {download_url}")
+
+                # Click the link element (NOT driver.get - that blocks!)
+                link_element = driver.find_element(By.CSS_SELECTOR, f'a[href="{download_url}"]')
+                link_element.click()
+                link_found = True
+                break
+
+        if not link_found:
+            raise ValueError("Download link for traded credits not found.")
+
+        # Wait for download to complete
+        downloaded_file = wait_for_download(tmpdir)
+        logging.info(f"File downloaded to: {downloaded_file}")
+        return downloaded_file
+
+    finally:
+        driver.quit()
 
 
 def get_trade_data() -> pd.ExcelFile:
@@ -50,45 +125,11 @@ def get_trade_data() -> pd.ExcelFile:
     logging.info("Starting get_trade_data()")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Configure Firefox to download to temp directory
-        options = Options()
-        options.add_argument("--headless")
-        options.set_preference("browser.download.folderList", 2)
-        options.set_preference("browser.download.dir", tmpdir)
-        options.set_preference("browser.download.useDownloadDir", True)
-        options.set_preference("browser.helperApps.neverAsk.saveToDisk",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        downloaded_file = _download_nvcr_file(tmpdir)
 
-        driver = webdriver.Firefox(options=options)
-        try:
-            driver.get(NVCR_URL)
-            logging.info("Page loaded successfully.")
-
-            html = driver.page_source
-            soup = BeautifulSoup(html, "lxml")
-            download_link = None
-
-            for link in soup.find_all("a", href=True):
-                if URL_TEXT in link.get_text(strip=True):
-                    download_link = link["href"]
-                    break
-
-            if not download_link:
-                raise ValueError("Download link for traded credits not found.")
-
-            logging.info(f"Download link found: {download_link}")
-            driver.get(download_link)
-
-            # Wait for download to complete
-            downloaded_file = wait_for_download(tmpdir)
-            logging.info(f"File downloaded to: {downloaded_file}")
-
-            # Load into memory before temp directory cleanup
-            excel_file = pd.ExcelFile(downloaded_file)
-            return excel_file
-
-        finally:
-            driver.quit()
+        # Load into memory before temp directory cleanup
+        excel_file = pd.ExcelFile(downloaded_file)
+        return excel_file
     # tmpdir automatically deleted here
 
 
@@ -97,38 +138,11 @@ def save_nvcr_file(output_path: str) -> None:
     logging.info(f"Downloading NVCR trade data to: {output_path}")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        options = Options()
-        options.add_argument("--headless")
-        options.set_preference("browser.download.folderList", 2)
-        options.set_preference("browser.download.dir", tmpdir)
-        options.set_preference("browser.download.useDownloadDir", True)
-        options.set_preference("browser.helperApps.neverAsk.saveToDisk",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        downloaded_file = _download_nvcr_file(tmpdir)
 
-        driver = webdriver.Firefox(options=options)
-        try:
-            driver.get(NVCR_URL)
-            html = driver.page_source
-            soup = BeautifulSoup(html, "lxml")
-
-            download_link = None
-            for link in soup.find_all("a", href=True):
-                if "Traded credits information" in link.get_text(strip=True):
-                    download_link = link["href"]
-                    break
-
-            if not download_link:
-                raise ValueError("Download link not found.")
-
-            driver.get(download_link)
-            downloaded_file = wait_for_download(tmpdir)
-
-            # Copy to user-specified location
-            shutil.copy(downloaded_file, output_path)
-            logging.info(f"NVCR trade data saved to: {output_path}")
-
-        finally:
-            driver.quit()
+        # Copy to user-specified location
+        shutil.copy(downloaded_file, output_path)
+        logging.info(f"NVCR trade data saved to: {output_path}")
 
 # Call argparse and define the arguments
 parser = argparse.ArgumentParser(description='Process trade prices and supply'
