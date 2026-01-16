@@ -1,19 +1,25 @@
 {
   description = "trade-analysis flake";
 
-  inputs = { nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable"; };
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+  };
 
-  outputs = { nixpkgs, ... }:
-    let
-      supportedSystems =
+  outputs = { self, nixpkgs, flake-parts, ... }:
+    flake-parts.lib.mkFlake {
+      inherit self nixpkgs;
+
+      systems =
         [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
 
-      forAllSystems = f:
-        nixpkgs.lib.genAttrs supportedSystems (system:
-          let
-            pkgs = nixpkgs.legacyPackages.${system};
+      perSystem = { system, ... }:
+        let
+          pkgs = import nixpkgs { inherit system; };
 
-            pythonEnv = pkgs.python3.withPackages (p:
+          envDeps = with pkgs; [
+            pkgs.python3.withPackages
+            (p:
               with p; [
                 numpy
                 pandas
@@ -24,30 +30,29 @@
                 requests
                 lxml
                 xlsxwriter
-              ]);
+              ])
+            firefox
+            geckodriver
+          ];
+        in {
+          packages.default = pkgs.stdenv.mkDerivation {
+            pname = "nvcr trade-analysis";
+            version = "0.1";
 
-            envDeps = with pkgs; [ pythonEnv firefox geckodriver ];
+            src = ./.;
 
-          in f { inherit pkgs envDeps system; });
+            buildInputs = envDeps;
+            dontBuild = true;
 
-    in {
-      packages = forAllSystems ({ pkgs, envDeps, ... }: {
-        default = pkgs.stdenv.mkDerivation {
-          pname = "nvcr trade-analysis";
-          version = "0.1";
+            installPhase = ''
+              mkdir -p $out/bin
+              cp $src/*.py $out/bin/
+              mv $out/bin/trade_analysis.py $out/bin/trade-analysis
+              chmod +x $out/bin/*
+            '';
+          };
 
-          src = ./.;
-
-          buildInputs = envDeps;
-          dontBuild = true;
-
-          installPhase =
-            "	mkdir -p $out/bin\n	cp $src/*.py $out/bin/\n	mv $out/bin/trade_analysis.py $out/bin/trade-analysis\n	chmod +x $out/bin/*\n";
+          devShells.default = pkgs.mkShell { buildInputs = envDeps; };
         };
-      });
-
-      devShells = forAllSystems ({ pkgs, envDeps, ... }: {
-        default = pkgs.mkShell { buildInputs = [ envDeps ]; };
-      });
     };
 }
