@@ -16,7 +16,7 @@ from io import StringIO
 
 def get_supply() -> dict[str, pd.DataFrame]:
     opts = webdriver.FirefoxOptions()
-#    opts.add_argument("--headless")
+    opts.add_argument("--headless")
     driver = webdriver.Firefox(options = opts)
     wait = WebDriverWait(driver, timeout=10)
 
