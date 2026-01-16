@@ -1,67 +1,54 @@
 {
   description = "trade-analysis flake";
 
-  inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-  };
+  inputs = { nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable"; };
 
   outputs = { nixpkgs, ... }:
     let
-    supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
+      supportedSystems =
+        [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
 
-  forAllSystems = f: 
-    nixpkgs.lib.genAttrs supportedSystems ( system: 
-	let
-	  pkgs = nixpkgs.legacyPackages.${system};
+      forAllSystems = f:
+        nixpkgs.lib.genAttrs supportedSystems (system:
+          let
+            pkgs = nixpkgs.legacyPackages.${system};
 
-	  pythonEnv = pkgs.python3.withPackages ( p: with p; [
-	    numpy
-	    pandas
-	    openpyxl
-	    beautifulsoup4
-	    selenium
-	    thefuzz
-	    requests
-	    lxml
-	    xlsxwriter
-	  ]);
+            pythonEnv = pkgs.python3.withPackages (p:
+              with p; [
+                numpy
+                pandas
+                openpyxl
+                beautifulsoup4
+                selenium
+                thefuzz
+                requests
+                lxml
+                xlsxwriter
+                pylance
+              ]);
 
-	  envDeps = with pkgs; [
-		pythonEnv
-		firefox
-		geckodriver
-	  ];
+            envDeps = with pkgs; [ pythonEnv firefox geckodriver ];
 
-	in 
+          in f { inherit pkgs envDeps system; });
 
-	  f { inherit pkgs envDeps system; }
-    );
+    in {
+      packages = forAllSystems ({ pkgs, envDeps, ... }: {
+        default = pkgs.stdenv.mkDerivation {
+          pname = "nvcr trade-analysis";
+          version = "0.1";
 
-  in {
-    packages = forAllSystems ({ pkgs, envDeps, ... }: { 
-		default = pkgs.stdenv.mkDerivation {
-			pname = "nvcr trade-analysis";
-			version = "0.1";
+          src = ./.;
 
-			src = ./.;
+          buildInputs = [ envDeps ];
+          dontBuild = true;
 
-			buildInputs = [ envDeps];
-			dontBuild = true;
+          installPhase =
+            "	mkdir -p $out/bin\n	cp $src/*.py $out/bin/\n	mv $out/bin/trade_analysis.py $out/bin/trade_analysis\n	chmod +x $out/bin/*.py\n	chmod +x $out/bin/trade_analysis\n";
+        };
+      });
 
-			installPhase = ''
-				mkdir -p $out/bin
-				cp $src/*.py $out/bin/
-				mv $out/bin/trade_analysis.py $out/bin/trade_analysis
-				chmod +x $out/bin/*.py
-				chmod +x $out/bin/trade_analysis
-			'';
-			};
-		});
-
-    devShells = forAllSystems ({ pkgs, envDeps, ... }: {
-	default = pkgs.mkShell {
-	  buildInputs = [ envDeps ];
-	};
-    });
-  };
+      devShells = forAllSystems ({ pkgs, envDeps, ... }: {
+        default = pkgs.mkShell { buildInputs = [ envDeps ]; };
+      });
+    };
 }
