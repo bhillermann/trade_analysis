@@ -272,14 +272,116 @@ hu_df['sbu'] = pd.to_numeric(hu_df['sbu'], errors='coerce').fillna(0)
 hu_df['shu_price'] = pd.to_numeric(hu_df['shu_price'], errors='coerce').fillna(0)
 hu_df['price_ex_gst'] = pd.to_numeric(hu_df['price_ex_gst'], errors='coerce').fillna(0)
 
+
+def merge_duplicate_ghu_trades(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merge duplicate GHU trades where date, cma, and ghu_price are identical.
+    Sum quantities (ghu, lt) and prices (price_in_gst, price_ex_gst).
+    Keep the highest sbv value from each group.
+    """
+    if df.empty:
+        return df
+    
+    merged: pd.DataFrame = df.groupby(['date', 'cma', 'ghu_price'], as_index=False).agg({
+        'sbv': 'max',
+        'ghu': 'sum',
+        'lt': 'sum',
+        'price_in_gst': 'sum',
+        'price_ex_gst': 'sum'
+    })
+    return merged
+
+
+def merge_duplicate_shu_trades(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merge duplicate SHU trades where date, shu_price, and base species are identical.
+    Sum quantities (sbu, lt) and prices (price_in_gst, price_ex_gst).
+    Keep the highest sbv value. Combine all unique species names in output.
+    """
+    if df.empty:
+        return df
+    
+    def extract_base_species(species_str: str) -> str:
+        """Extract base species name (first element before '(' or ',')."""
+        if pd.isna(species_str):
+            return ''
+        species_str = str(species_str).strip()
+        # Take the first part before '(' or ','
+        base: str = species_str.split('(')[0].split(',')[0].strip()
+        return base
+    
+    def combine_species_names(group: pd.Series) -> str:
+        """Combine all unique species from the group."""
+        all_species: set[str] = set()
+        
+        for species_str in group:
+            species_str_typed: Any = species_str
+            if pd.isna(species_str_typed):
+                continue
+            species_str_clean: str = str(species_str_typed).strip()
+            
+            # Extract main species (comma-separated list before any parenthesis)
+            main_part: str = species_str_clean.split('(')[0].strip()
+            for sp in main_part.split(','):
+                sp_clean: str = sp.strip()
+                if sp_clean:
+                    all_species.add(sp_clean)
+            
+            # Extract alternate species from parentheses if present
+            if '(' in species_str_clean:
+                try:
+                    paren_content: str = species_str_clean[species_str_clean.index('(')+1:species_str_clean.rindex(')')]
+                    # Extract species after unit indicators like "GHU", "SHU"
+                    for part in paren_content.split(';'):
+                        part_str: str = str(part)
+                        # Remove GHU/SHU unit information and numbers
+                        cleaned: str = part_str.split('GHU')[0].split('SHU')[0].strip()
+                        for sp in cleaned.split(','):
+                            sp_clean_inner: str = sp.strip()
+                            # Skip entries that start with numbers or are empty
+                            if sp_clean_inner and not sp_clean_inner[0].isdigit():
+                                all_species.add(sp_clean_inner)
+                except (ValueError, IndexError):
+                    pass
+        
+        return ', '.join(sorted(all_species))
+    
+    # Create temporary column with base species name for grouping
+    df_copy: pd.DataFrame = df.copy()
+    df_copy['base_species'] = df_copy['species'].apply(extract_base_species)
+    
+    # Group by date, shu_price, and base_species; aggregate and combine species names
+    merged: pd.DataFrame = df_copy.groupby(['date', 'shu_price', 'base_species'], as_index=False).agg({
+        'sbu': 'sum',
+        'lt': 'sum',
+        'price_in_gst': 'sum',
+        'price_ex_gst': 'sum',
+        'species': combine_species_names
+    })
+    
+    # Drop the temporary column and reorder columns to match original order
+    merged = merged.drop('base_species', axis=1)
+    merged = merged[['date', 'sbu', 'lt', 'species', 'shu_price', 'price_in_gst', 'price_ex_gst']]
+    
+    return merged
+
+
 # Grab the SHUs from the HU dataframe
 shu_df = hu_df[pd.notnull(hu_df['species'])]
+
+# Merge duplicate SHU trades (same date, shu_price, and species)
+print('Merging duplicate SHU trades...')
+shu_df = merge_duplicate_shu_trades(shu_df)
+print(f'SHU trades after merge: {len(shu_df)} rows')
+
+# Keep the SHU records in descending date order (newest first)
+shu_df = shu_df.sort_values(by='date', ascending=False).reset_index(drop=True)
 
 # Drop all HU trades outside of the date range
 hu_df = hu_df[((hu_df['date'] >= start_date.date()) & (hu_df['date'] <= end_date.date()))]
 
-# Drop the SHU columns we don't need
-shu_df = shu_df.drop(['cma', 'sbv', 'ghu', 'ghu_price'], axis=1)
+# Select only the SHU columns needed (sbv was used for merge, now removed)
+shu_df = shu_df[['date', 'lt', 'sbu', 'shu_price', 'species', 'price_in_gst', 'price_ex_gst']]
 
 # Set 1 year and 3 year date ranges
 one_year = end_date.date() - timedelta(days=365)
@@ -317,8 +419,16 @@ shu_summary_df_3y = pd.DataFrame(list(shu_summary_3y.items()), columns=['Descrip
 # Drop the SHU trades so we only have GHU trades
 hu_df = hu_df[pd.isnull(hu_df['species'])]
 
-# Drop the HU columns we don't need
-hu_df = hu_df.drop(['sbu', 'shu_price', 'species'], axis=1)
+# Merge duplicate GHU trades (same date, cma, and ghu_price)
+print('Merging duplicate GHU trades...')
+hu_df = merge_duplicate_ghu_trades(hu_df)
+print(f'GHU trades after merge: {len(hu_df)} rows')
+
+# Keep the GHU records in descending date order (newest first)
+hu_df = hu_df.sort_values(by='date', ascending=False).reset_index(drop=True)
+
+# Select only the GHU columns we need (merge returns only aggregated columns)
+hu_df = hu_df[['date', 'cma', 'sbv', 'ghu', 'lt', 'ghu_price', 'price_in_gst', 'price_ex_gst']]
 
 # Replace all NaN values with 0
 hu_df['lt'] = hu_df['lt'].fillna(0)
