@@ -70,7 +70,7 @@ choices = ['Corangamite', 'Port Phillip and Westernport', 'Melbourne Water',
            'East Gippsland', 'Mallee', 'North Central', 'North East']
 
 # Clean up all the inconsistancies in CMA names
-def fix_cmas(row: pd.Series[Any]) -> str:
+def fix_cmas(row: pd.Series) -> str:
     result = process.extractOne(row['cma'], choices)  # type: ignore[attr-defined]
     if result is None:
         return str(row['cma'])
