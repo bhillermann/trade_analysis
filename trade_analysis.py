@@ -36,6 +36,12 @@ NVCR_URL = (
 URL_TEXT = "Traded credits information"
 
 
+def period_start(end: datetime, months: int) -> datetime:
+    """Return the first day of the month that begins an n-month window ending in end's month."""
+    total = end.year * 12 + (end.month - 1) - (months - 1)
+    return end.replace(year=total // 12, month=total % 12 + 1, day=1)
+
+
 def wait_for_download(directory: str, timeout: int = 120) -> str:
     """Wait for .xlsx file to appear in directory after Selenium download."""
     start_time = time.time()
@@ -248,7 +254,7 @@ hu_df = hu_df.set_axis([
 current_date = datetime.today()
 end_date = current_date.replace(day=1)
 end_date = end_date - timedelta(days=1)
-start_date = end_date - timedelta(days=365)
+start_date = period_start(end_date, 12)
 
 if args.start:
     start_date = datetime.strptime(args.start, '%Y-%m-%d')
@@ -384,8 +390,8 @@ hu_df = hu_df[((hu_df['date'] >= start_date.date()) & (hu_df['date'] <= end_date
 shu_df = shu_df[['date', 'lt', 'sbu', 'shu_price', 'species', 'price_in_gst', 'price_ex_gst']]
 
 # Set 1 year and 3 year date ranges
-one_year = end_date.date() - timedelta(days=365)
-three_year = end_date.date() - timedelta(days=1095)
+one_year = period_start(end_date, 12).date()
+three_year = period_start(end_date, 36).date()
 
 # Drop all SHU trades outside of a one year period from end date
 shu_df_1y = shu_df[((shu_df['date'] >= one_year) &
