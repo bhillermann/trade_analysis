@@ -7,7 +7,7 @@ from thefuzz import process
 import copy
 from datetime import datetime, timedelta
 import argparse
-from ghu_search import get_supply
+from ghu_search import get_supply, save_supply_file
 from openpyxl import load_workbook
 from openpyxl.styles import Font
 import tempfile
@@ -181,6 +181,11 @@ parser.add_argument("-e", "--end",
 parser.add_argument("--download-nvcr",
                     help='Download NVCR trade data file and save to specified '
                          'location without running analysis. Exits after download.')
+parser.add_argument("--download-supply",
+                    nargs='?', const='Supply_{}.xlsx',
+                    help='Scrape NVCR supply data and save to the specified '
+                         'location without running analysis. Exits after '
+                         'download. Defaults to "Supply_{timestamp}.xlsx".')
 
 args = parser.parse_args()
 
@@ -189,6 +194,12 @@ if args.download_nvcr:
     print('Downloading NVCR trade data...')
     save_nvcr_file(args.download_nvcr)
     print(f'NVCR trade data saved as: {args.download_nvcr}')
+    sys.exit(0)
+
+if args.download_supply:
+    print('Downloading supply data...')
+    supply_path = save_supply_file(args.download_supply)
+    print(f'Supply data saved as: {supply_path}')
     sys.exit(0)
 
 # Import the Traded Credits data with pandas

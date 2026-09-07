@@ -67,6 +67,21 @@ def get_supply() -> dict[str, pd.DataFrame]:
 
     return all_supply
 
+def save_supply_file(output_path: str) -> str:
+    """Scrape supply data and write one sheet per CMA to output_path.
+
+    A "{}" in output_path is replaced with a timestamp.
+    """
+    all_supply = get_supply()
+    supply_xlsx = output_path.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
+    with pd.ExcelWriter(supply_xlsx,
+                        engine='xlsxwriter',
+                        engine_kwargs={'options': {'strings_to_formulas': False}}
+                        ) as writer:
+        for cma in all_supply:
+            all_supply[cma].to_excel(writer, sheet_name=cma)
+    return supply_xlsx
+
 
 if __name__ == "__main__":
 
@@ -79,17 +94,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Get supply data as dict of DataFrames
-    all_supply = get_supply()
-
-    # Write to Excel file
-    supply_xlsx = args.output.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
-    with pd.ExcelWriter(supply_xlsx,
-                        engine='xlsxwriter',
-                        engine_kwargs={'options':{'strings_to_formulas': False}}) as writer:
-        for cma in all_supply:
-            all_supply[cma].to_excel(writer, sheet_name=cma)
+    supply_xlsx = save_supply_file(args.output)
 
     print(f'Supply data saved to: {supply_xlsx}')
-
-
