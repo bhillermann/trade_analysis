@@ -796,7 +796,7 @@ for row in sheet["J4:J8"]:
     for cell in row:
         cell.number_format = currency_format
 
-for row in sheet["J12:J16"]:
+for row in sheet["J13:J17"]:
     for cell in row:
         cell.number_format = currency_format
 
